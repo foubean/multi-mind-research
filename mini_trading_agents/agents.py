@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import Any
-
 from mini_trading_agents.state import DebateState, Report, TradingState
 
 
@@ -199,7 +197,11 @@ def _stance_from_score(score: float) -> str:
 def _get_debate(state: TradingState, key: str) -> DebateState:
     existing = state.get(key)
     if existing:
-        return existing
+        return {
+            "history": list(existing["history"]),
+            "latest_speaker": existing["latest_speaker"],
+            "count": existing["count"],
+        }
     return {"history": [], "latest_speaker": "", "count": 0}
 
 

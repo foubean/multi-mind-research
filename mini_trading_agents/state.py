@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, NotRequired, TypedDict
+import operator
+from typing import Annotated, Any, NotRequired, TypedDict
 
 
 class Report(TypedDict):
@@ -31,9 +32,16 @@ class FinalDecision(TypedDict):
 
 
 class TradingState(TypedDict):
+    # TradingState is the shared blackboard for all graph nodes. Nodes read the
+    # current state and return partial updates; LangGraph merges those updates
+    # into the next state.
     ticker: str
     analysis_date: str
-    trace: list[str]
+    max_research_debate_turns: int
+    max_risk_debate_turns: int
+    # Parallel nodes may update trace in the same graph step, so this list needs
+    # a reducer. operator.add appends all returned trace fragments.
+    trace: Annotated[list[str], operator.add]
 
     market_report: NotRequired[Report]
     sentiment_report: NotRequired[Report]
