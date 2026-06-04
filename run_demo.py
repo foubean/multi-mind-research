@@ -38,14 +38,47 @@ def main() -> None:
         default=6,
         help="Total risk debate turns before the portfolio manager runs.",
     )
+    parser.add_argument(
+        "--data-provider",
+        choices=["sample", "yahoo"],
+        default="sample",
+        help="Shortcut provider for all data categories.",
+    )
+    parser.add_argument(
+        "--market-provider",
+        choices=["sample", "yahoo"],
+        help="Provider for market data. Defaults to --data-provider.",
+    )
+    parser.add_argument(
+        "--sentiment-provider",
+        choices=["sample", "yahoo"],
+        help="Provider for sentiment data. Defaults to --data-provider.",
+    )
+    parser.add_argument(
+        "--news-provider",
+        choices=["sample", "yahoo"],
+        help="Provider for news data. Defaults to --data-provider.",
+    )
+    parser.add_argument(
+        "--fundamentals-provider",
+        choices=["sample", "yahoo"],
+        help="Provider for fundamentals data. Defaults to --data-provider.",
+    )
     args = parser.parse_args()
 
     graph = build_demo_workflow()
+    data_providers = {
+        "market": args.market_provider or args.data_provider,
+        "sentiment": args.sentiment_provider or args.data_provider,
+        "news": args.news_provider or args.data_provider,
+        "fundamentals": args.fundamentals_provider or args.data_provider,
+    }
     state = initial_state(
         args.ticker,
         args.date,
         max_research_debate_turns=args.research_turns,
         max_risk_debate_turns=args.risk_turns,
+        data_providers=data_providers,
     )
     log_path = None if args.no_log else make_log_path(args.log_dir, state["ticker"], state["analysis_date"])
     logger = JsonlRunLogger(log_path) if log_path else None
@@ -78,6 +111,7 @@ def main() -> None:
     print(f"Confidence: {state['final_trade_decision']['confidence']}")
     print(f"Position size: {state['final_trade_decision']['position_size']}")
     print(f"Reason: {state['final_trade_decision']['reason']}")
+    print(f"Data status: {state['data_status']['status']} ({state['data_status']['providers']})")
     if log_path:
         print(f"Log file: {log_path}")
     print()

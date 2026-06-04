@@ -6,6 +6,7 @@ from typing import Literal
 from langgraph.graph import END, START, StateGraph
 
 from mini_trading_agents import agents
+from mini_trading_agents.data_layer import prepare_data
 from mini_trading_agents.state import TradingState
 
 
@@ -22,6 +23,8 @@ Node = Callable[[TradingState], dict]
 
 def build_demo_workflow():
     graph = StateGraph(TradingState)
+
+    graph.add_node("prepare_data", _with_trace("prepare_data", prepare_data))
 
     graph.add_node("market_analyst", _with_trace("market_analyst", agents.market_analyst))
     graph.add_node("sentiment_analyst", _with_trace("sentiment_analyst", agents.sentiment_analyst))
@@ -40,11 +43,15 @@ def build_demo_workflow():
 
     graph.add_node("portfolio_manager", _with_trace("portfolio_manager", agents.portfolio_manager))
 
-    # One edge from START to each analyst means the analyst stage fans out:
+    # prepare_data is the data layer boundary: it fetches, cleans, and
+    # structures raw provider data before analysts read their own state fields.
+    graph.add_edge(START, "prepare_data")
+
+    # One edge from prepare_data to each analyst means the analyst stage fans out:
     # LangGraph can run these independent nodes in parallel against the same
     # input state instead of chaining them one by one.
     for node_name in ANALYST_NODES:
-        graph.add_edge(START, node_name)
+        graph.add_edge("prepare_data", node_name)
 
     # A list of source nodes creates a join: bull_researcher waits until all
     # analyst nodes have produced their partial state updates.
@@ -89,12 +96,20 @@ def initial_state(
     analysis_date: str,
     max_research_debate_turns: int = 4,
     max_risk_debate_turns: int = 6,
+    data_providers: dict[str, str] | None = None,
 ) -> TradingState:
+    providers = data_providers or {
+        "market": "sample",
+        "sentiment": "sample",
+        "news": "sample",
+        "fundamentals": "sample",
+    }
     return {
         "ticker": ticker.upper(),
         "analysis_date": analysis_date,
         "max_research_debate_turns": max_research_debate_turns,
         "max_risk_debate_turns": max_risk_debate_turns,
+        "data_providers": providers,
         "trace": [],
     }
 

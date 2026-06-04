@@ -20,6 +20,15 @@ def _report(title: str, signal: str, confidence: float, summary: str) -> Report:
 
 def market_analyst(state: TradingState) -> TradingState:
     ticker = state["ticker"]
+    data = state.get("market_data")
+    if data:
+        close = data["close"]
+        ma20 = data["moving_average_20"]
+        signal = "bullish" if close >= ma20 else "bearish"
+        confidence = 0.68 if signal == "bullish" else 0.6
+        summary = f"{ticker} closed at {close}, with market observations: " + " ".join(data["observations"])
+        return {"market_report": _report("Market/Technical Analyst", signal, confidence, summary)}
+
     return {
         "market_report": _report(
             "Market/Technical Analyst",
@@ -32,6 +41,14 @@ def market_analyst(state: TradingState) -> TradingState:
 
 def sentiment_analyst(state: TradingState) -> TradingState:
     ticker = state["ticker"]
+    data = state.get("sentiment_data")
+    if data:
+        score = data["sentiment_score"]
+        signal = "bullish" if score > 0.15 else "bearish" if score < -0.15 else "neutral"
+        confidence = min(0.85, 0.55 + abs(score))
+        summary = f"{ticker} sentiment score is {score}. " + " ".join(data["observations"])
+        return {"sentiment_report": _report("Sentiment Analyst", signal, confidence, summary)}
+
     return {
         "sentiment_report": _report(
             "Sentiment Analyst",
@@ -44,6 +61,16 @@ def sentiment_analyst(state: TradingState) -> TradingState:
 
 def news_analyst(state: TradingState) -> TradingState:
     ticker = state["ticker"]
+    data = state.get("news_data")
+    if data:
+        item_sentiments = [item["sentiment"] for item in data["items"]]
+        positive = item_sentiments.count("positive")
+        negative = item_sentiments.count("negative")
+        signal = "bullish" if positive > negative else "bearish" if negative > positive else "neutral"
+        confidence = 0.55 + min(0.25, abs(positive - negative) * 0.1)
+        summary = f"{ticker} has {len(data['items'])} recent news items. " + " ".join(data["observations"])
+        return {"news_report": _report("News Analyst", signal, confidence, summary)}
+
     return {
         "news_report": _report(
             "News Analyst",
@@ -56,6 +83,20 @@ def news_analyst(state: TradingState) -> TradingState:
 
 def fundamentals_analyst(state: TradingState) -> TradingState:
     ticker = state["ticker"]
+    data = state.get("fundamentals_data")
+    if data:
+        growth = data["revenue_growth_yoy"]
+        margin = data["operating_margin"]
+        valuation = data["forward_pe"]
+        signal = "bullish" if growth > 0.15 and margin > 0.2 else "neutral"
+        confidence = 0.72 if valuation < 50 else 0.62
+        summary = (
+            f"{ticker} revenue growth is {growth:.1%}, operating margin is {margin:.1%}, "
+            f"and forward P/E is {valuation}. "
+            + " ".join(data["observations"])
+        )
+        return {"fundamentals_report": _report("Fundamentals Analyst", signal, confidence, summary)}
+
     return {
         "fundamentals_report": _report(
             "Fundamentals Analyst",

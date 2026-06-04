@@ -1,0 +1,38 @@
+{
+  "ticker": "NVDA",
+  "as_of": "2026-06-04",
+  "source": "mock",
+  "items": [
+    {
+      "title": "Company announces expanded data center partnership",
+      "source": "Example Financial News",
+      "published_at": "2026-06-03T14:30:00Z",
+      "summary": "The company expanded a data center partnership that could support future accelerator demand.",
+      "url": "https://example.com/news/data-center-partnership",
+      "sentiment": "positive"
+    },
+    {
+      "title": "Analysts debate valuation after recent rally",
+      "source": "Example Markets Daily",
+      "published_at": "2026-06-03T19:10:00Z",
+      "summary": "Several analysts highlighted strong growth but warned that valuation leaves less room for disappointment.",
+      "url": "https://example.com/news/valuation-debate",
+      "sentiment": "neutral"
+    },
+    {
+      "title": "Sector report notes possible supply bottlenecks",
+      "source": "Example Industry Watch",
+      "published_at": "2026-06-04T08:00:00Z",
+      "summary": "A sector report flagged supply constraints as a risk for near-term delivery schedules.",
+      "url": "https://example.com/news/supply-bottlenecks",
+      "sentiment": "negative"
+    }
+  ],
+  "observations": [
+    "Recent news flow includes one positive partnership item.",
+    "Valuation concerns are present but not tied to a company-specific negative event.",
+    "Supply constraints should be monitored as an execution risk."
+  ],
+  "used_by": "news_analyst",
+  "intended_output": "news_report"
+}

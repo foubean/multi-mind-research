@@ -1,0 +1,24 @@
+{
+  "ticker": "NVDA",
+  "as_of": "2026-06-04",
+  "source": "mock",
+  "sentiment_score": 0.27,
+  "positive_mentions": 1840,
+  "negative_mentions": 910,
+  "neutral_mentions": 1260,
+  "mention_change_pct_24h": 18.5,
+  "top_topics": [
+    "AI demand",
+    "data center growth",
+    "valuation risk",
+    "supply constraints"
+  ],
+  "observations": [
+    "Positive mentions outnumber negative mentions, but the gap is not overwhelming.",
+    "Discussion volume increased over the last 24 hours.",
+    "The strongest positive topic is AI demand.",
+    "The main negative topic is valuation risk."
+  ],
+  "used_by": "sentiment_analyst",
+  "intended_output": "sentiment_report"
+}

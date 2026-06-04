@@ -1,0 +1,22 @@
+{
+  "ticker": "NVDA",
+  "as_of": "2026-06-04",
+  "source": "mock",
+  "close": 125.42,
+  "change_pct": 1.85,
+  "volume": 48650000,
+  "average_volume_20d": 42100000,
+  "moving_average_20": 119.8,
+  "moving_average_60": 111.35,
+  "rsi_14": 63.4,
+  "macd": 2.18,
+  "volatility_20d": 0.34,
+  "observations": [
+    "Price is above both the 20-day and 60-day moving averages.",
+    "Volume is above the 20-day average, suggesting stronger participation.",
+    "RSI is elevated but not yet in an extreme overbought zone.",
+    "Volatility remains meaningful, so position sizing should be controlled."
+  ],
+  "used_by": "market_analyst",
+  "intended_output": "market_report"
+}
