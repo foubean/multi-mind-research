@@ -91,6 +91,8 @@ class SqliteStore:
         decision = state.get("final_trade_decision")
         if not decision:
             return
+        now = _now()
+        memory_event = build_decision_memory_event(run_id, state)
         with self._connect() as conn:
             conn.execute(
                 """
@@ -109,7 +111,28 @@ class SqliteStore:
                     decision["position_size"],
                     decision["reason"],
                     _json(decision),
-                    _now(),
+                    now,
+                ),
+            )
+            conn.execute(
+                """
+                insert into memory_events (
+                    run_id, event_type, scope_type, scope_id, ticker, analysis_date,
+                    summary, metadata_json, event_json, created_at
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    memory_event["event_type"],
+                    memory_event["scope_type"],
+                    memory_event["scope_id"],
+                    memory_event["ticker"],
+                    memory_event["analysis_date"],
+                    memory_event["summary"],
+                    _json(memory_event["metadata"]),
+                    _json(memory_event),
+                    now,
                 ),
             )
 
@@ -156,6 +179,51 @@ class SqliteStore:
 
                 create index if not exists idx_decision_memory_ticker
                 on decision_memory(ticker, created_at);
+
+                create table if not exists memory_events (
+                    id integer primary key autoincrement,
+                    run_id text not null,
+                    event_type text not null,
+                    scope_type text not null,
+                    scope_id text not null,
+                    ticker text,
+                    analysis_date text,
+                    summary text not null,
+                    metadata_json text not null,
+                    event_json text not null,
+                    created_at text not null,
+                    foreign key(run_id) references workflow_runs(run_id)
+                );
+
+                create index if not exists idx_memory_events_scope
+                on memory_events(scope_type, scope_id, created_at);
+
+                create index if not exists idx_memory_events_ticker
+                on memory_events(ticker, created_at);
+
+                create table if not exists trade_outcomes (
+                    id integer primary key autoincrement,
+                    run_id text not null unique,
+                    ticker text not null,
+                    analysis_date text not null,
+                    final_action text not null,
+                    position_size text not null,
+                    entry_price real,
+                    exit_price real,
+                    holding_days integer,
+                    return_pct real,
+                    max_drawdown_pct real,
+                    reward real,
+                    outcome text,
+                    notes text,
+                    outcome_json text,
+                    created_at text not null,
+                    updated_at text not null,
+                    foreign key(run_id) references workflow_runs(run_id)
+                );
+
+                create index if not exists idx_trade_outcomes_ticker_date
+                on trade_outcomes(ticker, analysis_date);
                 """
             )
 
@@ -171,3 +239,45 @@ def _json(value: dict[str, Any]) -> str:
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def build_decision_memory_event(run_id: str, state: dict[str, Any]) -> dict[str, Any]:
+    decision = state["final_trade_decision"]
+    signals = {
+        "market": _report_signal(state, "market_report"),
+        "sentiment": _report_signal(state, "sentiment_report"),
+        "news": _report_signal(state, "news_report"),
+        "fundamentals": _report_signal(state, "fundamentals_report"),
+    }
+    metadata = {
+        "run_id": run_id,
+        "ticker": state["ticker"],
+        "analysis_date": state["analysis_date"],
+        "data_providers": state.get("data_providers", {}),
+        "signals": signals,
+        "risk_status": state.get("risk_assessment", {}).get("status"),
+        "action": decision["action"],
+        "position_size": decision["position_size"],
+        "confidence": decision["confidence"],
+    }
+    return {
+        "event_type": "decision_event",
+        "scope_type": "ticker",
+        "scope_id": state["ticker"],
+        "ticker": state["ticker"],
+        "analysis_date": state["analysis_date"],
+        "summary": (
+            f"{state['ticker']} {state['analysis_date']} "
+            f"{decision['action']} {decision['position_size']} "
+            f"confidence={decision['confidence']}"
+        ),
+        "metadata": metadata,
+        "decision": decision,
+    }
+
+
+def _report_signal(state: dict[str, Any], key: str) -> str | None:
+    report = state.get(key)
+    if not report:
+        return None
+    return report.get("signal")

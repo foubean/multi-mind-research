@@ -1,0 +1,15 @@
+[persistence]
+# LangGraph native checkpoint persistence. This stores graph execution metadata
+# keyed by thread_id, including channel versions, pending sends, and next tasks.
+checkpoint_enabled = true
+checkpoint_path = "storage/langgraph_checkpoints.sqlite"
+
+# Custom full-state snapshots written after streamed `values` chunks.
+snapshot_enabled = true
+
+# Long-term decision memory written once after the portfolio decision finishes.
+decision_memory_enabled = true
+memory_store_path = "storage/langgraph_memory.sqlite"
+
+# SQLite database used by custom snapshots and decision memory.
+storage_path = "storage/trading_agents.sqlite"

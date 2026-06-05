@@ -1,5 +1,46 @@
 # Change Log
 
+## 2026-06-05 - Twelfth Update: LangGraph Store Memory
+
+- Changed the active long-term memory layer to LangGraph Store.
+- Added `memory_store_path`, defaulting to `storage/langgraph_memory.sqlite`.
+- Updated the graph compile step to pass both `checkpointer` and `store`.
+- Saved each final decision event into LangGraph Store under `("decision_memory", "ticker", TICKER)`.
+- Kept custom `decision_memory` and `memory_events` tables as audit-friendly copies.
+- Reused the same structured decision event payload for both LangGraph Store memory and the audit copy.
+
+## 2026-06-05 - Eleventh Update: Simple Metadata Memory Events
+
+- Added a simple `memory_events` table for long-term memory facts.
+- Kept the first memory event type intentionally small: `decision_event`.
+- Added metadata for each decision memory event, including run id, ticker, analysis date, data providers, analyst signals, risk status, final action, position size, and confidence.
+- Updated `save_decision_memory` so one completed decision writes both the existing `decision_memory` row and a general `memory_events` row.
+- Left retrieval, ranking, summaries, and LLM prompt injection for a later step.
+
+## 2026-06-05 - Tenth Update: Trade Outcome Table Placeholder
+
+- Added a reserved `trade_outcomes` table to the custom SQLite schema.
+- Designed `trade_outcomes` as one simulated-trading result per `run_id`.
+- Added fields for ticker, analysis date, final action, position size, entry/exit price, holding days, return percentage, max drawdown, reward, outcome label, notes, and raw outcome JSON.
+- Added an index on `(ticker, analysis_date)` for future feedback and memory retrieval queries.
+- This table is schema-only for now; the workflow does not write trade outcomes yet.
+
+## 2026-06-05 - Ninth Update: Configurable Checkpoint Persistence
+
+- Added `conf/config.toml` as the default runtime configuration file.
+- Added `mini_trading_agents/config.py` to load persistence settings with safe defaults.
+- Added LangGraph native SQLite checkpoints through `SqliteSaver`.
+- Updated `build_demo_workflow(checkpointer=None)` so the graph can compile with or without a checkpointer.
+- Added `checkpoint_enabled`, `snapshot_enabled`, and `decision_memory_enabled` switches.
+- Kept all three persistence switches enabled by default.
+- Added `checkpoint_path` for LangGraph checkpoint storage.
+- Kept `storage_path` for custom snapshots and decision memory.
+- Updated `run_demo.py` to pass `thread_id = run_id` into LangGraph when checkpointing is enabled.
+- Updated the streaming loop so custom snapshots are only written when `snapshot_enabled = true`.
+- Updated final decision storage so decision memory is only written when `decision_memory_enabled = true`.
+- Kept `--storage-path` as a CLI override for the configured custom persistence database.
+- Added `--config` to select a TOML config file.
+
 ## 2026-06-05 - Eighth Update: SQLite Snapshots And Decision Memory
 
 - Added local SQLite persistence under `mini_trading_agents/storage/`.

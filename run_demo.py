@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack, nullcontext
 import json
+from pathlib import Path
 from uuid import uuid4
 
+from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.store.sqlite import SqliteStore as LangGraphSqliteStore
+
+from mini_trading_agents.config import DEFAULT_CONFIG_PATH, load_config
 from mini_trading_agents.langgraph_workflow import build_demo_workflow, initial_state
 from mini_trading_agents.logging import JsonlRunLogger, make_log_path
-from mini_trading_agents.storage import SqliteStore
+from mini_trading_agents.storage import SqliteStore, build_decision_memory_event
 
 
 def main() -> None:
@@ -80,16 +86,24 @@ def main() -> None:
         help="After --resume loads the latest snapshot, run the graph again from that state.",
     )
     parser.add_argument(
+        "--config",
+        default=DEFAULT_CONFIG_PATH,
+        help="TOML config file for persistence features.",
+    )
+    parser.add_argument(
         "--storage-path",
-        default="storage/trading_agents.sqlite",
-        help="SQLite path for workflow snapshots and decision memory.",
+        help="Override config persistence.storage_path for snapshots and decision memory.",
     )
     args = parser.parse_args()
 
-    graph = build_demo_workflow()
-    store = SqliteStore(args.storage_path)
+    app_config = load_config(args.config)
+    persistence = app_config.persistence
+    storage_path = args.storage_path or persistence.storage_path
+    store = SqliteStore(storage_path) if persistence.snapshot_enabled or persistence.decision_memory_enabled else None
     run_id = args.resume or args.run_id or f"{args.ticker.upper()}-{args.date}-{uuid4().hex[:8]}"
     if args.resume:
+        if not store or not persistence.snapshot_enabled:
+            raise SystemExit("Resume requires snapshot_enabled = true.")
         state = store.latest_snapshot(args.resume)
         if state is None:
             raise SystemExit(f"No snapshot found for run id: {args.resume}")
@@ -108,10 +122,19 @@ def main() -> None:
             data_providers=data_providers,
         )
     if args.resume and not args.rerun_resume:
-        _print_state(state, run_id, args.storage_path, log_path=None, pretty=args.pretty)
+        _print_state(
+            state,
+            run_id,
+            storage_path if store else None,
+            persistence.checkpoint_path if persistence.checkpoint_enabled else None,
+            persistence.memory_store_path if persistence.decision_memory_enabled else None,
+            log_path=None,
+            pretty=args.pretty,
+        )
         return
 
-    store.create_or_update_run(run_id, state)
+    if store and (persistence.snapshot_enabled or persistence.decision_memory_enabled):
+        store.create_or_update_run(run_id, state)
 
     log_path = None if args.no_log else make_log_path(args.log_dir, state["ticker"], state["analysis_date"])
     logger = JsonlRunLogger(log_path) if log_path else None
@@ -120,37 +143,85 @@ def main() -> None:
 
     final_state = state
     step_index = 0
-    # The JSONL audit log is driven by LangGraph streaming rather than manual
-    # node wrappers. "updates" records node-level partial state changes, while
-    # "values" records full state snapshots after graph steps.
-    for chunk in graph.stream(state, stream_mode=["updates", "values"], version="v2"):
-        if logger:
-            logger.stream_chunk(chunk)
-        if chunk["type"] == "values":
-            final_state = chunk["data"]
-            store.save_snapshot(run_id, step_index, final_state)
-            step_index += 1
+    with ExitStack() as stack:
+        checkpointer = stack.enter_context(_checkpoint_context(persistence.checkpoint_enabled, persistence.checkpoint_path))
+        memory_store = stack.enter_context(
+            _memory_store_context(persistence.decision_memory_enabled, persistence.memory_store_path)
+        )
+        graph = build_demo_workflow(checkpointer=checkpointer, store=memory_store)
+        graph_config = {"configurable": {"thread_id": run_id}} if checkpointer else None
+        # The JSONL audit log is driven by LangGraph streaming rather than manual
+        # node wrappers. "updates" records node-level partial state changes, while
+        # "values" records full state snapshots after graph steps.
+        for chunk in graph.stream(state, config=graph_config, stream_mode=["updates", "values"], version="v2"):
+            if logger:
+                logger.stream_chunk(chunk)
+            if chunk["type"] == "values":
+                final_state = chunk["data"]
+                if store and persistence.snapshot_enabled:
+                    store.save_snapshot(run_id, step_index, final_state)
+                step_index += 1
+
+        if persistence.decision_memory_enabled:
+            _save_store_memory(memory_store, run_id, final_state)
 
     if logger:
         logger.event("stream_end", run_id=run_id, state=final_state)
-    store.mark_completed(run_id, final_state)
-    store.save_decision_memory(run_id, final_state)
+    if store and (persistence.snapshot_enabled or persistence.decision_memory_enabled):
+        store.mark_completed(run_id, final_state)
+    if store and persistence.decision_memory_enabled:
+        store.save_decision_memory(run_id, final_state)
     state = final_state
 
-    _print_state(state, run_id, args.storage_path, log_path=log_path, pretty=args.pretty)
+    _print_state(
+        state,
+        run_id,
+        storage_path if store else None,
+        persistence.checkpoint_path if persistence.checkpoint_enabled else None,
+        persistence.memory_store_path if persistence.decision_memory_enabled else None,
+        log_path=log_path,
+        pretty=args.pretty,
+    )
+
+
+def _checkpoint_context(enabled: bool, checkpoint_path: str):
+    if not enabled:
+        return nullcontext(None)
+    Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
+    return SqliteSaver.from_conn_string(checkpoint_path)
+
+
+def _memory_store_context(enabled: bool, memory_store_path: str):
+    if not enabled:
+        return nullcontext(None)
+    Path(memory_store_path).parent.mkdir(parents=True, exist_ok=True)
+    return LangGraphSqliteStore.from_conn_string(memory_store_path)
+
+
+def _save_store_memory(memory_store, run_id: str, state: dict) -> None:
+    if memory_store is None or not state.get("final_trade_decision"):
+        return
+    event = build_decision_memory_event(run_id, state)
+    namespace = ("decision_memory", event["scope_type"], event["scope_id"])
+    key = f"{event['analysis_date']}:{run_id}"
+    memory_store.put(namespace, key, event)
 
 
 def _print_state(
     state: dict,
     run_id: str,
-    storage_path: str,
+    storage_path: str | None,
+    checkpoint_path: str | None,
+    memory_store_path: str | None,
     log_path,
     pretty: bool,
 ) -> None:
     if pretty:
         print(json.dumps(state, indent=2, ensure_ascii=False))
         print(f"\nRun id: {run_id}")
-        print(f"Storage: {storage_path}")
+        print(f"Storage: {storage_path or 'disabled'}")
+        print(f"Checkpoint: {checkpoint_path or 'disabled'}")
+        print(f"Memory store: {memory_store_path or 'disabled'}")
         if log_path:
             print(f"\nLog file: {log_path}")
         return
@@ -169,7 +240,9 @@ def _print_state(
     data_status = state.get("data_status")
     if data_status:
         print(f"Data status: {data_status['status']} ({data_status['providers']})")
-    print(f"Storage: {storage_path}")
+    print(f"Storage: {storage_path or 'disabled'}")
+    print(f"Checkpoint: {checkpoint_path or 'disabled'}")
+    print(f"Memory store: {memory_store_path or 'disabled'}")
     if log_path:
         print(f"Log file: {log_path}")
     print()

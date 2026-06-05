@@ -21,7 +21,7 @@ ANALYST_NODES = [
 Node = Callable[[TradingState], dict]
 
 
-def build_demo_workflow():
+def build_demo_workflow(checkpointer=None, store=None):
     graph = StateGraph(TradingState)
 
     graph.add_node("prepare_data", _with_trace("prepare_data", prepare_data))
@@ -88,7 +88,7 @@ def build_demo_workflow():
     )
     graph.add_edge("portfolio_manager", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer, store=store)
 
 
 def initial_state(

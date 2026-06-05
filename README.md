@@ -80,7 +80,19 @@ python .\run_demo.py --ticker NVDA --date 2026-06-05 --run-id nvda-demo-001
 python .\run_demo.py --resume nvda-demo-001
 ```
 
-Snapshots are written to `storage/trading_agents.sqlite` by default. Each streamed full-state `values` chunk is saved as a recoverable snapshot, and the final decision is saved into decision memory.
+Snapshots are written to `storage/trading_agents.sqlite` by default. Each streamed full-state `values` chunk is saved as a recoverable snapshot. Decision memory is written to LangGraph Store at `storage/langgraph_memory.sqlite`; the custom SQLite database also keeps `decision_memory` and `memory_events` rows as an audit-friendly copy with metadata such as ticker, analysis date, analyst signals, risk status, action, position size, and confidence.
+
+Persistence is configured in `conf/config.toml`. The three persistence layers are all enabled by default:
+
+- `checkpoint_enabled`: LangGraph native checkpoints keyed by `thread_id`.
+- `snapshot_enabled`: custom complete-state snapshots after streamed `values` chunks.
+- `decision_memory_enabled`: final portfolio decisions saved to LangGraph Store, with an audit copy in custom SQLite.
+
+Use a different config file when needed:
+
+```powershell
+python .\run_demo.py --config .\conf\config.toml --ticker NVDA
+```
 
 ## Workflow
 
@@ -118,10 +130,19 @@ Portfolio Manager
 - `mini_trading_agents/data_layer/news/`: news data adapters.
 - `mini_trading_agents/data_layer/fundamentals/`: fundamentals data adapters.
 - `mini_trading_agents/langgraph_workflow.py`: LangGraph workflow with parallel analysts and debate loops.
+- `mini_trading_agents/config.py`: TOML config loader for persistence features.
 - `mini_trading_agents/logging.py`: JSONL run logger for streamed graph events.
+- `mini_trading_agents/storage/`: custom SQLite snapshots and decision memory.
 - `mini_trading_agents/agents.py`: role implementations.
+- `conf/config.toml`: default persistence config.
 - `run_demo.py`: command-line demo entry point.
 
 ## Extending
 
 Replace the deterministic report logic in `agents.py` with calls to an LLM. Add more adapters under the relevant data category directory, such as `mini_trading_agents/data_layer/news/`, and have `prepare_data` write normalized inputs into `TradingState` before the analyst fan-out.
+
+接入RL
+state = 市场状态 + agent reports + memory
+action = BUY / SELL / HOLD + position_size
+reward = 未来收益 - 风险惩罚 - 交易成本
+policy = 可训练模型
