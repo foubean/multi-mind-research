@@ -1,5 +1,18 @@
 # Change Log
 
+## 2026-06-05 - Eighth Update: SQLite Snapshots And Decision Memory
+
+- Added local SQLite persistence under `mini_trading_agents/storage/`.
+- Added `workflow_runs` table for run metadata and final state.
+- Added `workflow_snapshots` table for complete streamed state snapshots.
+- Added `decision_memory` table for final trade decisions.
+- Added `--run-id` to give a run a stable id.
+- Added `--resume RUN_ID` to restart from the latest complete snapshot state for a run id.
+- Added `--storage-path`, defaulting to `storage/trading_agents.sqlite`.
+- Updated the LangGraph streaming loop to save every `values` chunk as a snapshot.
+- Persisted final decisions after successful run completion.
+- Added `storage/` to `.gitignore`.
+
 ## 2026-06-04 - Seventh Update: Per-Category Provider CLI
 
 - Changed runtime data-provider state from one `data_provider` string to a `data_providers` mapping.

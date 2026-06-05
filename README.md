@@ -73,6 +73,15 @@ Control debate loops:
 python .\run_demo.py --research-turns 4 --risk-turns 6
 ```
 
+Persist snapshots and decision memory:
+
+```powershell
+python .\run_demo.py --ticker NVDA --date 2026-06-05 --run-id nvda-demo-001
+python .\run_demo.py --resume nvda-demo-001
+```
+
+Snapshots are written to `storage/trading_agents.sqlite` by default. Each streamed full-state `values` chunk is saved as a recoverable snapshot, and the final decision is saved into decision memory.
+
 ## Workflow
 
 ```text
