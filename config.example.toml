@@ -13,3 +13,16 @@ memory_store_path = "storage/langgraph_memory.sqlite"
 
 # SQLite database used by custom snapshots and decision memory.
 storage_path = "storage/trading_agents.sqlite"
+
+[llm]
+# Disabled in the example so the demo remains runnable without an API key.
+enabled = false
+# If enabled and LLM mode is on, run a small startup check before graph work begins.
+runtime_check_enabled = true
+provider = "openai"
+model = "gpt-5.5"
+# Prefer environment variables for real keys. Local config.toml may also use
+# api_key = "sk-..." because config.toml is ignored by git.
+api_key_env = "OPENAI_API_KEY"
+base_url = ""
+temperature = 0.2

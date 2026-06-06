@@ -39,6 +39,49 @@ python .\run_demo.py --ticker NVDA --date 2026-01-15 --market-provider yahoo --s
 
 `--data-provider` is a shortcut that sets all four categories. Category-specific flags override it.
 
+Create a local config from the example:
+
+```powershell
+Copy-Item .\config.example.toml .\config.toml
+```
+
+Enable real LLM-backed decision nodes by editing local `config.toml`:
+
+```toml
+[llm]
+enabled = true
+runtime_check_enabled = true
+provider = "openai"
+model = "gpt-5.5"
+api_key_env = "OPENAI_API_KEY"
+temperature = 0.2
+```
+
+Then set the API key in your shell before running:
+
+```powershell
+$env:OPENAI_API_KEY = "..."
+python .\run_demo.py --ticker NVDA --date 2026-06-05
+```
+
+Because local `config.toml` is ignored by git, you can also put a direct key there:
+
+```toml
+api_key = "sk-..."
+```
+
+Test the configured OpenAI-compatible connection without running the full workflow:
+
+```powershell
+python .\scripts\test_openai_connection.py --config .\config.toml
+```
+
+When enabled, `research_manager`, `trader`, and `portfolio_manager` use the OpenAI Responses API with structured JSON output. The analyst and debate nodes remain deterministic for now.
+
+If an LLM call fails while enabled, the workflow stops with an error. There is no automatic fallback in LLM mode.
+
+When `runtime_check_enabled = true`, the runner sends one small LLM check before the graph starts. This catches unavailable LLM services before data preparation, debate loops, and other workflow work begin.
+
 Data provider status can be:
 
 - `ok`: all requested data categories came from the selected provider.
@@ -82,7 +125,7 @@ python .\run_demo.py --resume nvda-demo-001
 
 Snapshots are written to `storage/trading_agents.sqlite` by default. Each streamed full-state `values` chunk is saved as a recoverable snapshot. Decision memory is written to LangGraph Store at `storage/langgraph_memory.sqlite`; the custom SQLite database also keeps `decision_memory` and `memory_events` rows as an audit-friendly copy with metadata such as ticker, analysis date, analyst signals, risk status, action, position size, and confidence.
 
-Persistence is configured in `conf/config.toml`. The three persistence layers are all enabled by default:
+Persistence is configured in local `config.toml`. The three persistence layers are all enabled by default:
 
 - `checkpoint_enabled`: LangGraph native checkpoints keyed by `thread_id`.
 - `snapshot_enabled`: custom complete-state snapshots after streamed `values` chunks.
@@ -91,7 +134,7 @@ Persistence is configured in `conf/config.toml`. The three persistence layers ar
 Use a different config file when needed:
 
 ```powershell
-python .\run_demo.py --config .\conf\config.toml --ticker NVDA
+python .\run_demo.py --config .\config.toml --ticker NVDA
 ```
 
 ## Workflow
@@ -131,10 +174,11 @@ Portfolio Manager
 - `mini_trading_agents/data_layer/fundamentals/`: fundamentals data adapters.
 - `mini_trading_agents/langgraph_workflow.py`: LangGraph workflow with parallel analysts and debate loops.
 - `mini_trading_agents/config.py`: TOML config loader for persistence features.
+- `mini_trading_agents/llm_adapter/`: provider adapters for optional LLM-backed decision nodes.
 - `mini_trading_agents/logging.py`: JSONL run logger for streamed graph events.
 - `mini_trading_agents/storage/`: custom SQLite snapshots and decision memory.
 - `mini_trading_agents/agents.py`: role implementations.
-- `conf/config.toml`: default persistence config.
+- `config.example.toml`: safe example config for local `config.toml`.
 - `run_demo.py`: command-line demo entry point.
 
 ## Extending

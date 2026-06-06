@@ -97,6 +97,7 @@ def initial_state(
     max_research_debate_turns: int = 4,
     max_risk_debate_turns: int = 6,
     data_providers: dict[str, str] | None = None,
+    llm_config: dict | None = None,
 ) -> TradingState:
     providers = data_providers or {
         "market": "sample",
@@ -110,6 +111,7 @@ def initial_state(
         "max_research_debate_turns": max_research_debate_turns,
         "max_risk_debate_turns": max_risk_debate_turns,
         "data_providers": providers,
+        "llm_config": llm_config or {"enabled": False},
         "trace": [],
     }
 

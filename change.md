@@ -1,5 +1,102 @@
 # Change Log
 
+## 2026-06-06 - Twenty Fourth Update: Final LLM Integration Shape
+
+- Confirmed every role node now supports LLM mode.
+- Kept the data layer and state contracts unchanged: analyst nodes still return `Report`, research/risk debaters still append debate history, and portfolio manager still writes `final_trade_decision`.
+- Finalized the OpenAI provider implementation as `OpenAIAdapter` under `mini_trading_agents/llm_adapter/openai.py`.
+- Finalized the adapter response method name as `response_wrapper`.
+- Confirmed LLM model, base URL, direct API key, API key environment variable, and temperature all come from runtime config.
+- Confirmed LLM-enabled failures stop execution instead of producing a deterministic fallback decision.
+
+## 2026-06-06 - Twenty Third Update: LLM Runtime Check
+
+- Added `llm.runtime_check_enabled`, defaulting to true.
+- Added a startup LLM connectivity check before graph execution when LLM mode is enabled.
+- Added `OpenAIAdapter.check_connection()` for the lightweight preflight request.
+- The workflow now fails before data preparation and agent execution if the configured LLM service is unavailable.
+
+## 2026-06-06 - Twenty Second Update: LLM Analysts
+
+- Added LLM-backed behavior for `market_analyst`, `sentiment_analyst`, `news_analyst`, and `fundamentals_analyst`.
+- Each analyst now returns the existing `Report` shape: title, signal, confidence, and summary.
+- LLM analyst prompts consume the normalized data fields already produced by the data layer.
+- Deterministic analyst logic remains available when LLM is disabled.
+- All current role nodes now support LLM mode.
+
+## 2026-06-06 - Twenty First Update: LLM Research Debaters
+
+- Added LLM-backed behavior for `bull_researcher` and `bear_researcher`.
+- Each research debater now asks the configured LLM for a structured `argument` when LLM is enabled.
+- Arguments still append to `investment_debate_state.history`, preserving the existing debate loop contract.
+- Deterministic bull/bear debate text remains available when LLM is disabled.
+- At this point, every role after the four analyst nodes can use LLM when enabled.
+
+## 2026-06-06 - Twentieth Update: LLM Risk Debaters
+
+- Added LLM-backed behavior for `aggressive_risk_debater`, `neutral_risk_debater`, and `conservative_risk_debater`.
+- Each risk debater now asks the configured LLM for a structured `risk_view` when LLM is enabled.
+- Risk views still append to the existing `risk_debate_state.history`, preserving the current graph state contract.
+- Deterministic risk debate text remains available when LLM is disabled.
+- Added LLM usage trace records for the three risk debater nodes.
+
+## 2026-06-06 - Nineteenth Update: Direct LLM API Key Support
+
+- Added optional `api_key` support for local `config.toml`.
+- Kept `api_key_env` support as the preferred example path.
+- Updated `OpenAIAdapter` to prefer direct `api_key` and fall back to `api_key_env`.
+- Added the same direct key support for provider-style config blocks.
+
+## 2026-06-05 - Eighteenth Update: LLM Adapter Layout
+
+- Replaced the temporary `mini_trading_agents/llm/openai_json.py` layout with `mini_trading_agents/llm_adapter/openai.py`.
+- Kept provider-specific code under `llm_adapter` so later providers such as Gemini can be added cleanly.
+- Removed provider adapter default model selection; the model must now come from config.
+- Updated imports and README paths to use `llm_adapter`.
+- Renamed the adapter entry point from `generate_json` to `response_wrapper` for clearer intent.
+- Added an agent-side `_invoke_llm` helper so nodes pass payloads and schemas without exposing provider call details.
+- Converted OpenAI access into an `OpenAIAdapter` class with a reusable client.
+- Added `get_llm_adapter(...)` as the global adapter factory used by all LLM-backed agents.
+
+## 2026-06-05 - Seventeenth Update: OpenAI Connection Test
+
+- Added `scripts/test_openai_connection.py` to test Responses API connectivity without running the full workflow.
+- Made the test script read either the project `[llm]` config or an OpenAI provider-style TOML config.
+- Removed a hard-coded API key from the OpenAI adapter so credentials only come from environment variables.
+- Documented the connection test command in README.
+
+## 2026-06-05 - Sixteenth Update: LLM Failure Stops Run
+
+- Removed the extra `llm.required` switch to keep LLM configuration small.
+- Removed automatic fallback in LLM mode.
+- Changed LLM-enabled runs to stop immediately when an LLM-backed node fails.
+- Kept deterministic behavior only when `llm.enabled = false`.
+
+## 2026-06-05 - Fifteenth Update: LLM Usage Trace
+
+- Added `llm_usage_trace` to `TradingState`.
+- Added success/fallback trace records for `research_manager`, `trader`, and `portfolio_manager`.
+- Updated console output to show whether each LLM-backed node used the API or fell back to deterministic logic.
+- Kept fallback behavior, but made it visible instead of silent.
+
+## 2026-06-05 - Fourteenth Update: Root Local Config
+
+- Changed the default config path from `conf/config.toml` to root `config.toml`.
+- Added `config.example.toml` as the tracked safe example config.
+- Added `/config.toml` to `.gitignore` so local LLM/API settings stay outside version control.
+- Updated README examples to use root `config.toml`.
+
+## 2026-06-05 - Thirteenth Update: Optional LLM Agent Adapter
+
+- Added an optional LLM configuration section in the runtime config file.
+- Added an OpenAI Responses API JSON adapter for LLM-backed decision nodes.
+- Added `openai>=2.0.0` to dependencies.
+- Added `llm_config` to `TradingState`.
+- Passed LLM configuration into the initial workflow state.
+- Updated `research_manager`, `trader`, and `portfolio_manager` to use LLM structured JSON outputs when enabled.
+- Kept deterministic rule-based behavior as the default and as fallback when LLM calls are disabled or unavailable.
+- Left analyst and debate nodes deterministic for now to keep the first API-backed version small and stable.
+
 ## 2026-06-05 - Twelfth Update: LangGraph Store Memory
 
 - Changed the active long-term memory layer to LangGraph Store.
@@ -27,7 +124,7 @@
 
 ## 2026-06-05 - Ninth Update: Configurable Checkpoint Persistence
 
-- Added `conf/config.toml` as the default runtime configuration file.
+- Added a runtime configuration file for persistence settings.
 - Added `mini_trading_agents/config.py` to load persistence settings with safe defaults.
 - Added LangGraph native SQLite checkpoints through `SqliteSaver`.
 - Updated `build_demo_workflow(checkpointer=None)` so the graph can compile with or without a checkpointer.

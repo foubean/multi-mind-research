@@ -3,3 +3,4 @@ __pycache__/
 logs/
 .cache/
 /storage/
+/config.toml

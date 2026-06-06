@@ -11,6 +11,7 @@ from langgraph.store.sqlite import SqliteStore as LangGraphSqliteStore
 
 from mini_trading_agents.config import DEFAULT_CONFIG_PATH, load_config
 from mini_trading_agents.langgraph_workflow import build_demo_workflow, initial_state
+from mini_trading_agents.llm_adapter import get_llm_adapter
 from mini_trading_agents.logging import JsonlRunLogger, make_log_path
 from mini_trading_agents.storage import SqliteStore, build_decision_memory_event
 
@@ -120,6 +121,7 @@ def main() -> None:
             max_research_debate_turns=args.research_turns,
             max_risk_debate_turns=args.risk_turns,
             data_providers=data_providers,
+            llm_config=app_config.llm.__dict__,
         )
     if args.resume and not args.rerun_resume:
         _print_state(
@@ -132,6 +134,8 @@ def main() -> None:
             pretty=args.pretty,
         )
         return
+
+    _run_llm_runtime_check(app_config.llm.__dict__)
 
     if store and (persistence.snapshot_enabled or persistence.decision_memory_enabled):
         store.create_or_update_run(run_id, state)
@@ -207,6 +211,18 @@ def _save_store_memory(memory_store, run_id: str, state: dict) -> None:
     memory_store.put(namespace, key, event)
 
 
+def _run_llm_runtime_check(llm_config: dict) -> None:
+    if not llm_config.get("enabled") or not llm_config.get("runtime_check_enabled", True):
+        return
+    try:
+        get_llm_adapter(llm_config).check_connection()
+    except Exception as exc:
+        raise SystemExit(
+            "LLM runtime check failed before workflow execution: "
+            f"{type(exc).__name__}: {str(exc)[:500]}"
+        ) from exc
+
+
 def _print_state(
     state: dict,
     run_id: str,
@@ -240,6 +256,14 @@ def _print_state(
     data_status = state.get("data_status")
     if data_status:
         print(f"Data status: {data_status['status']} ({data_status['providers']})")
+    llm_usage_trace = state.get("llm_usage_trace")
+    if llm_usage_trace:
+        print("LLM usage:")
+        for item in llm_usage_trace:
+            detail = f"{item['node']}: {item['status']} ({item.get('model')})"
+            if item.get("error_type"):
+                detail += f" - {item['error_type']}: {item.get('error')}"
+            print(f"- {detail}")
     print(f"Storage: {storage_path or 'disabled'}")
     print(f"Checkpoint: {checkpoint_path or 'disabled'}")
     print(f"Memory store: {memory_store_path or 'disabled'}")

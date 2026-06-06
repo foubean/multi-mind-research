@@ -101,6 +101,8 @@ class TradingState(TypedDict):
     max_research_debate_turns: int
     max_risk_debate_turns: int
     data_providers: dict[str, str]
+    llm_config: NotRequired[dict[str, Any]]
+    llm_usage_trace: NotRequired[Annotated[list[dict[str, Any]], operator.add]]
     # Parallel nodes may update trace in the same graph step, so this list needs
     # a reducer. operator.add appends all returned trace fragments.
     trace: Annotated[list[str], operator.add]

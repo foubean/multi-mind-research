@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from statistics import mean
+from typing import Any
+
+from mini_trading_agents.llm_adapter import get_llm_adapter
 from mini_trading_agents.state import DebateState, Report, TradingState
 
 
@@ -19,6 +22,19 @@ def _report(title: str, signal: str, confidence: float, summary: str) -> Report:
 
 
 def market_analyst(state: TradingState) -> TradingState:
+    llm_report, llm_trace = _maybe_llm_analyst(
+        state,
+        "market_analyst",
+        "Market/Technical Analyst",
+        (
+            "You are the market and technical analyst. Analyze price action, moving averages, "
+            "RSI, MACD, volume, volatility, and the supplied market observations."
+        ),
+        {"market_data": state.get("market_data")},
+    )
+    if llm_report:
+        return {"market_report": llm_report, "llm_usage_trace": [llm_trace]}
+
     ticker = state["ticker"]
     data = state.get("market_data")
     if data:
@@ -40,6 +56,19 @@ def market_analyst(state: TradingState) -> TradingState:
 
 
 def sentiment_analyst(state: TradingState) -> TradingState:
+    llm_report, llm_trace = _maybe_llm_analyst(
+        state,
+        "sentiment_analyst",
+        "Sentiment Analyst",
+        (
+            "You are the sentiment analyst. Analyze the supplied sentiment score, mention counts, "
+            "topic mix, and sentiment observations."
+        ),
+        {"sentiment_data": state.get("sentiment_data")},
+    )
+    if llm_report:
+        return {"sentiment_report": llm_report, "llm_usage_trace": [llm_trace]}
+
     ticker = state["ticker"]
     data = state.get("sentiment_data")
     if data:
@@ -60,6 +89,19 @@ def sentiment_analyst(state: TradingState) -> TradingState:
 
 
 def news_analyst(state: TradingState) -> TradingState:
+    llm_report, llm_trace = _maybe_llm_analyst(
+        state,
+        "news_analyst",
+        "News Analyst",
+        (
+            "You are the news analyst. Analyze recent news items, article sentiment, "
+            "catalysts, and news-related risks from the supplied normalized news data."
+        ),
+        {"news_data": state.get("news_data")},
+    )
+    if llm_report:
+        return {"news_report": llm_report, "llm_usage_trace": [llm_trace]}
+
     ticker = state["ticker"]
     data = state.get("news_data")
     if data:
@@ -82,6 +124,19 @@ def news_analyst(state: TradingState) -> TradingState:
 
 
 def fundamentals_analyst(state: TradingState) -> TradingState:
+    llm_report, llm_trace = _maybe_llm_analyst(
+        state,
+        "fundamentals_analyst",
+        "Fundamentals Analyst",
+        (
+            "You are the fundamentals analyst. Analyze growth, margins, valuation, leverage, "
+            "cash flow, balance sheet quality, and the supplied fundamentals observations."
+        ),
+        {"fundamentals_data": state.get("fundamentals_data")},
+    )
+    if llm_report:
+        return {"fundamentals_report": llm_report, "llm_usage_trace": [llm_trace]}
+
     ticker = state["ticker"]
     data = state.get("fundamentals_data")
     if data:
@@ -110,31 +165,59 @@ def fundamentals_analyst(state: TradingState) -> TradingState:
 def bull_researcher(state: TradingState) -> TradingState:
     reports = _analyst_reports(state)
     bullish_points = [r["summary"] for r in reports if r["signal"] == "bullish"]
-    argument = "Bull case: " + " ".join(bullish_points)
+    llm_argument, llm_trace = _maybe_llm_research_debater(
+        state,
+        "bull_researcher",
+        (
+            "You are the bull researcher. Build the strongest evidence-based bullish "
+            "case from the analyst reports, while acknowledging the key condition "
+            "that would weaken the thesis."
+        ),
+    )
+    argument = llm_argument or "Bull case: " + " ".join(bullish_points)
     debate = _get_debate(state, "investment_debate_state")
     debate["history"].append(argument)
     debate["latest_speaker"] = "bull_researcher"
     debate["count"] += 1
-    return {"investment_debate_state": debate}
+    updates: TradingState = {"investment_debate_state": debate}
+    if llm_trace:
+        updates["llm_usage_trace"] = [llm_trace]
+    return updates
 
 
 def bear_researcher(state: TradingState) -> TradingState:
     debate = _get_debate(state, "investment_debate_state")
-    argument = (
+    llm_argument, llm_trace = _maybe_llm_research_debater(
+        state,
+        "bear_researcher",
+        (
+            "You are the bear researcher. Build the strongest evidence-based bearish "
+            "or cautionary case from the analyst reports and existing debate, focusing "
+            "on valuation, execution, sentiment, and downside risk."
+        ),
+    )
+    argument = llm_argument or (
         "Bear case: sentiment is not decisive, valuation risk remains, and a better "
         "entry point may be needed."
     )
     debate["history"].append(argument)
     debate["latest_speaker"] = "bear_researcher"
     debate["count"] += 1
-    return {"investment_debate_state": debate}
+    updates: TradingState = {"investment_debate_state": debate}
+    if llm_trace:
+        updates["llm_usage_trace"] = [llm_trace]
+    return updates
 
 
 def research_manager(state: TradingState) -> TradingState:
+    llm_result, llm_trace = _maybe_llm_research_manager(state)
+    if llm_result:
+        return {"investment_plan": llm_result, "llm_usage_trace": [llm_trace]}
+
     reports = _analyst_reports(state)
     weighted_score = _weighted_signal_score(reports)
     stance = _stance_from_score(weighted_score)
-    return {
+    updates: TradingState = {
         "investment_plan": {
             "stance": stance,
             "score": round(weighted_score, 3),
@@ -144,13 +227,20 @@ def research_manager(state: TradingState) -> TradingState:
             ),
         }
     }
+    if llm_trace:
+        updates["llm_usage_trace"] = [llm_trace]
+    return updates
 
 
 def trader(state: TradingState) -> TradingState:
+    llm_result, llm_trace = _maybe_llm_trader(state)
+    if llm_result:
+        return {"trader_investment_plan": llm_result, "llm_usage_trace": [llm_trace]}
+
     plan = state["investment_plan"]
     action = {"bullish": "BUY", "neutral": "HOLD", "bearish": "SELL"}[plan["stance"]]
     position_size = "small" if plan["score"] < 0.45 else "medium"
-    return {
+    updates: TradingState = {
         "trader_investment_plan": {
             "action": action,
             "position_size": position_size,
@@ -158,43 +248,88 @@ def trader(state: TradingState) -> TradingState:
             "rationale": plan["summary"],
         }
     }
+    if llm_trace:
+        updates["llm_usage_trace"] = [llm_trace]
+    return updates
 
 
 def aggressive_risk_debater(state: TradingState) -> TradingState:
     proposal = state["trader_investment_plan"]
-    return _append_risk_view(
+    llm_view, llm_trace = _maybe_llm_risk_debater(
         state,
         "aggressive_risk_debater",
-        f"Aggressive view: accept the {proposal['position_size']} {proposal['action']} plan if momentum persists.",
+        (
+            "You are the aggressive risk debater. You focus on upside capture, "
+            "opportunity cost, and when accepting the proposed trade is justified. "
+            "Still mention the main risk control that must be respected."
+        ),
     )
+    updates = _append_risk_view(
+        state,
+        "aggressive_risk_debater",
+        llm_view
+        or f"Aggressive view: accept the {proposal['position_size']} {proposal['action']} plan if momentum persists.",
+    )
+    if llm_trace:
+        updates["llm_usage_trace"] = [llm_trace]
+    return updates
 
 
 def neutral_risk_debater(state: TradingState) -> TradingState:
     proposal = state["trader_investment_plan"]
-    return _append_risk_view(
+    llm_view, llm_trace = _maybe_llm_risk_debater(
         state,
         "neutral_risk_debater",
-        f"Neutral view: keep the {proposal['action']} proposal but require clear invalidation criteria.",
+        (
+            "You are the neutral risk debater. You balance the upside case and "
+            "downside risks, translating the trader proposal into practical risk "
+            "conditions and invalidation criteria."
+        ),
     )
+    updates = _append_risk_view(
+        state,
+        "neutral_risk_debater",
+        llm_view or f"Neutral view: keep the {proposal['action']} proposal but require clear invalidation criteria.",
+    )
+    if llm_trace:
+        updates["llm_usage_trace"] = [llm_trace]
+    return updates
 
 
 def conservative_risk_debater(state: TradingState) -> TradingState:
     proposal = state["trader_investment_plan"]
-    return _append_risk_view(
+    llm_view, llm_trace = _maybe_llm_risk_debater(
         state,
         "conservative_risk_debater",
-        f"Conservative view: cap exposure; {proposal['position_size']} is acceptable only with tight risk control.",
+        (
+            "You are the conservative risk debater. You prioritize capital "
+            "preservation, drawdown control, valuation risk, execution risk, and "
+            "conditions that should reduce or reject exposure."
+        ),
     )
+    updates = _append_risk_view(
+        state,
+        "conservative_risk_debater",
+        llm_view
+        or f"Conservative view: cap exposure; {proposal['position_size']} is acceptable only with tight risk control.",
+    )
+    if llm_trace:
+        updates["llm_usage_trace"] = [llm_trace]
+    return updates
 
 
 def portfolio_manager(state: TradingState) -> TradingState:
+    llm_result, llm_trace = _maybe_llm_portfolio_manager(state)
+    if llm_result:
+        return {**llm_result, "llm_usage_trace": [llm_trace]}
+
     proposal = state["trader_investment_plan"]
     risk_count = state["risk_debate_state"]["count"]
     approved = proposal["confidence"] >= 0.6 and risk_count >= 3
     action = proposal["action"] if approved else "HOLD"
     position_size = proposal["position_size"] if approved else "none"
     confidence = round(mean([proposal["confidence"], 0.65]), 2)
-    return {
+    updates: TradingState = {
         "risk_assessment": {
             "status": "approved" if approved else "rejected",
             "notes": state["risk_debate_state"]["history"],
@@ -211,6 +346,9 @@ def portfolio_manager(state: TradingState) -> TradingState:
             ),
         },
     }
+    if llm_trace:
+        updates["llm_usage_trace"] = [llm_trace]
+    return updates
 
 
 def _analyst_reports(state: TradingState) -> list[Report]:
@@ -252,3 +390,292 @@ def _append_risk_view(state: TradingState, speaker: str, message: str) -> Tradin
     debate["latest_speaker"] = speaker
     debate["count"] += 1
     return {"risk_debate_state": debate}
+
+
+def _maybe_llm_analyst(
+    state: TradingState,
+    node_name: str,
+    title: str,
+    role_prompt: str,
+    data_payload: dict[str, Any],
+) -> tuple[Report | None, dict[str, Any] | None]:
+    if not _llm_enabled(state):
+        return None, None
+    try:
+        result = _invoke_llm(
+            state,
+            system_prompt=(
+                f"{role_prompt} Return a concise analyst report for {state['ticker']}. "
+                "Use only the supplied normalized data. This is research support, not financial advice."
+            ),
+            payload={
+                "ticker": state["ticker"],
+                "analysis_date": state["analysis_date"],
+                **data_payload,
+            },
+            schema_name="analyst_report",
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["signal", "confidence", "summary"],
+                "properties": {
+                    "signal": {"type": "string", "enum": ["bullish", "neutral", "bearish"]},
+                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                    "summary": {"type": "string"},
+                },
+            },
+        )
+        return _report(
+            title,
+            str(result["signal"]),
+            round(float(result["confidence"]), 3),
+            str(result["summary"]),
+        ), _llm_trace(node_name, "success", state)
+    except Exception as exc:
+        raise _llm_error(node_name, exc) from exc
+
+
+def _maybe_llm_research_debater(
+    state: TradingState,
+    node_name: str,
+    role_prompt: str,
+) -> tuple[str | None, dict[str, Any] | None]:
+    if not _llm_enabled(state):
+        return None, None
+    try:
+        result = _invoke_llm(
+            state,
+            system_prompt=(
+                f"{role_prompt} Respond as {node_name}. "
+                "Write one concise debate argument that can be appended to the investment debate history. "
+                "Use only the supplied reports and debate context. This is research support, not financial advice."
+            ),
+            payload={
+                "ticker": state["ticker"],
+                "analysis_date": state["analysis_date"],
+                "analyst_reports": _analyst_reports(state),
+                "existing_investment_debate_state": state.get("investment_debate_state", {}),
+            },
+            schema_name="investment_debate_argument",
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["argument"],
+                "properties": {
+                    "argument": {"type": "string"},
+                },
+            },
+        )
+        return str(result["argument"]), _llm_trace(node_name, "success", state)
+    except Exception as exc:
+        raise _llm_error(node_name, exc) from exc
+
+
+def _maybe_llm_risk_debater(
+    state: TradingState,
+    node_name: str,
+    role_prompt: str,
+) -> tuple[str | None, dict[str, Any] | None]:
+    if not _llm_enabled(state):
+        return None, None
+    try:
+        result = _invoke_llm(
+            state,
+            system_prompt=(
+                f"{role_prompt} Respond as {node_name}. "
+                "Write one concise risk debate statement that can be appended to the risk debate history. "
+                "This is research support, not financial advice."
+            ),
+            payload={
+                "ticker": state["ticker"],
+                "analysis_date": state["analysis_date"],
+                "analyst_reports": _analyst_reports(state),
+                "investment_plan": state["investment_plan"],
+                "trader_investment_plan": state["trader_investment_plan"],
+                "existing_risk_debate_state": state.get("risk_debate_state", {}),
+            },
+            schema_name="risk_debate_view",
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["risk_view"],
+                "properties": {
+                    "risk_view": {"type": "string"},
+                },
+            },
+        )
+        return str(result["risk_view"]), _llm_trace(node_name, "success", state)
+    except Exception as exc:
+        raise _llm_error(node_name, exc) from exc
+
+
+def _maybe_llm_research_manager(state: TradingState) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    node_name = "research_manager"
+    if not _llm_enabled(state):
+        return None, None
+    try:
+        result = _invoke_llm(
+            state,
+            system_prompt=(
+                "You are the research manager in a multi-agent trading research workflow. "
+                "Use analyst reports and debate history to create an investment plan. "
+                "This is research support, not financial advice."
+            ),
+            payload={
+                "ticker": state["ticker"],
+                "analysis_date": state["analysis_date"],
+                "analyst_reports": _analyst_reports(state),
+                "investment_debate_state": state.get("investment_debate_state", {}),
+            },
+            schema_name="investment_plan",
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["stance", "score", "summary"],
+                "properties": {
+                    "stance": {"type": "string", "enum": ["bullish", "neutral", "bearish"]},
+                    "score": {"type": "number", "minimum": -1, "maximum": 1},
+                    "summary": {"type": "string"},
+                },
+            },
+        )
+        result["score"] = round(float(result["score"]), 3)
+        return result, _llm_trace(node_name, "success", state)
+    except Exception as exc:
+        raise _llm_error(node_name, exc) from exc
+
+
+def _maybe_llm_trader(state: TradingState) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    node_name = "trader"
+    if not _llm_enabled(state):
+        return None, None
+    try:
+        result = _invoke_llm(
+            state,
+            system_prompt=(
+                "You are the trader in a multi-agent trading workflow. Convert the "
+                "research plan into an action proposal with controlled position sizing."
+            ),
+            payload={
+                "ticker": state["ticker"],
+                "analysis_date": state["analysis_date"],
+                "investment_plan": state["investment_plan"],
+            },
+            schema_name="trade_proposal",
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["action", "position_size", "confidence", "rationale"],
+                "properties": {
+                    "action": {"type": "string", "enum": ["BUY", "HOLD", "SELL"]},
+                    "position_size": {"type": "string", "enum": ["none", "small", "medium", "large"]},
+                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                    "rationale": {"type": "string"},
+                },
+            },
+        )
+        result["confidence"] = round(float(result["confidence"]), 3)
+        return result, _llm_trace(node_name, "success", state)
+    except Exception as exc:
+        raise _llm_error(node_name, exc) from exc
+
+
+def _maybe_llm_portfolio_manager(state: TradingState) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    node_name = "portfolio_manager"
+    if not _llm_enabled(state):
+        return None, None
+    try:
+        result = _invoke_llm(
+            state,
+            system_prompt=(
+                "You are the portfolio manager in a multi-agent trading workflow. "
+                "Make the final decision after reviewing the trader proposal and risk debate. "
+                "Prefer capital preservation when evidence is weak or risk controls are unclear."
+            ),
+            payload={
+                "ticker": state["ticker"],
+                "analysis_date": state["analysis_date"],
+                "trader_investment_plan": state["trader_investment_plan"],
+                "risk_debate_state": state.get("risk_debate_state", {}),
+            },
+            schema_name="portfolio_decision",
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["risk_assessment", "final_trade_decision"],
+                "properties": {
+                    "risk_assessment": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["status", "notes"],
+                        "properties": {
+                            "status": {"type": "string", "enum": ["approved", "rejected"]},
+                            "notes": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                    "final_trade_decision": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["action", "position_size", "confidence", "reason"],
+                        "properties": {
+                            "action": {"type": "string", "enum": ["BUY", "HOLD", "SELL"]},
+                            "position_size": {"type": "string", "enum": ["none", "small", "medium", "large"]},
+                            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                            "reason": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        )
+        result["final_trade_decision"]["confidence"] = round(
+            float(result["final_trade_decision"]["confidence"]), 3
+        )
+        return result, _llm_trace(node_name, "success", state)
+    except Exception as exc:
+        raise _llm_error(node_name, exc) from exc
+
+
+def _llm_enabled(state: TradingState) -> bool:
+    return bool(state.get("llm_config", {}).get("enabled"))
+
+
+def _invoke_llm(
+    state: TradingState,
+    *,
+    system_prompt: str,
+    payload: dict[str, Any],
+    schema_name: str,
+    schema: dict[str, Any],
+) -> dict[str, Any]:
+    adapter = get_llm_adapter(state["llm_config"])
+    return adapter.response_wrapper(
+        system_prompt=system_prompt,
+        payload=payload,
+        schema_name=schema_name,
+        schema=schema,
+    )
+
+
+def _llm_trace(
+    node_name: str,
+    status: str,
+    state: TradingState,
+    error: Exception | None = None,
+) -> dict[str, Any]:
+    trace = {
+        "node": node_name,
+        "status": status,
+        "provider": state.get("llm_config", {}).get("provider"),
+        "model": state.get("llm_config", {}).get("model"),
+    }
+    if error:
+        trace["error_type"] = type(error).__name__
+        trace["error"] = str(error)[:300]
+    return trace
+
+
+def _llm_error(node_name: str, error: Exception) -> RuntimeError:
+    return RuntimeError(
+        f"LLM is enabled, but {node_name} failed: "
+        f"{type(error).__name__}: {str(error)[:500]}"
+    )
