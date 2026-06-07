@@ -27,6 +27,9 @@ class PersistenceConfig:
 class AppConfig:
     persistence: PersistenceConfig
     llm: "LLMConfig"
+    paper_trading: "PaperTradingConfig"
+    parameters: "ParameterConfig"
+    trade_preferences: "TradePreferencesConfig"
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,37 @@ class LLMConfig:
     temperature: float = 0.2
 
 
+@dataclass(frozen=True)
+class PaperTradingConfig:
+    enabled: bool = False
+    provider: str = "local"
+    account_id: str = "demo"
+    initial_cash: float = 100000.0
+    base_currency: str = "USD"
+    fee_rate: float = 0.0005
+    slippage_bps: float = 5.0
+    allow_fractional: bool = True
+    alpaca_api_key: str = ""
+    alpaca_api_key_env: str = "ALPACA_API_KEY"
+    alpaca_api_secret: str = ""
+    alpaca_api_secret_env: str = "ALPACA_API_SECRET"
+    alpaca_base_url: str = "https://paper-api.alpaca.markets"
+
+
+@dataclass(frozen=True)
+class ParameterConfig:
+    scope: str = "node"
+
+
+@dataclass(frozen=True)
+class TradePreferencesConfig:
+    risk_profile: str = "balanced"
+    trading_style: str = "staged"
+    target_return_pct: float = 0.12
+    max_drawdown_pct: float = 0.08
+    expected_holding_days: int = 20
+
+
 def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> AppConfig:
     data: dict[str, Any] = {}
     if path:
@@ -51,6 +85,9 @@ def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> AppConfig:
 
     persistence = data.get("persistence", {})
     llm = _resolve_llm_config(data)
+    paper_trading = data.get("paper_trading", {})
+    parameters = data.get("parameters", {})
+    trade_preferences = data.get("trade_preferences", {})
     return AppConfig(
         persistence=PersistenceConfig(
             checkpoint_enabled=_as_bool(persistence.get("checkpoint_enabled"), True),
@@ -69,6 +106,31 @@ def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> AppConfig:
             api_key_env=str(llm.get("api_key_env", "OPENAI_API_KEY")),
             base_url=str(llm.get("base_url", "")),
             temperature=float(llm.get("temperature", 0.2)),
+        ),
+        paper_trading=PaperTradingConfig(
+            enabled=_as_bool(paper_trading.get("enabled"), False),
+            provider=str(paper_trading.get("provider", "local")),
+            account_id=str(paper_trading.get("account_id", "demo")),
+            initial_cash=float(paper_trading.get("initial_cash", 100000.0)),
+            base_currency=str(paper_trading.get("base_currency", "USD")),
+            fee_rate=float(paper_trading.get("fee_rate", 0.0005)),
+            slippage_bps=float(paper_trading.get("slippage_bps", 5.0)),
+            allow_fractional=_as_bool(paper_trading.get("allow_fractional"), True),
+            alpaca_api_key=str(paper_trading.get("alpaca", {}).get("api_key", "")),
+            alpaca_api_key_env=str(paper_trading.get("alpaca", {}).get("api_key_env", "ALPACA_API_KEY")),
+            alpaca_api_secret=str(paper_trading.get("alpaca", {}).get("api_secret", "")),
+            alpaca_api_secret_env=str(paper_trading.get("alpaca", {}).get("api_secret_env", "ALPACA_API_SECRET")),
+            alpaca_base_url=str(paper_trading.get("alpaca", {}).get("base_url", "https://paper-api.alpaca.markets")),
+        ),
+        parameters=ParameterConfig(
+            scope=str(parameters.get("scope", "node")),
+        ),
+        trade_preferences=TradePreferencesConfig(
+            risk_profile=str(trade_preferences.get("risk_profile", "balanced")),
+            trading_style=str(trade_preferences.get("trading_style", "staged")),
+            target_return_pct=float(trade_preferences.get("target_return_pct", 0.12)),
+            max_drawdown_pct=float(trade_preferences.get("max_drawdown_pct", 0.08)),
+            expected_holding_days=int(trade_preferences.get("expected_holding_days", 20)),
         ),
     )
 

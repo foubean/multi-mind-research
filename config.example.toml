@@ -26,3 +26,33 @@ model = "gpt-5.5"
 api_key_env = "OPENAI_API_KEY"
 base_url = ""
 temperature = 0.2
+
+[paper_trading]
+# Disabled by default so the research demo can run without changing account state.
+enabled = false
+provider = "local"
+account_id = "demo"
+initial_cash = 100000
+base_currency = "USD"
+fee_rate = 0.0005
+slippage_bps = 5
+allow_fractional = true
+
+[paper_trading.alpaca]
+api_key_env = "ALPACA_API_KEY"
+api_secret_env = "ALPACA_API_SECRET"
+base_url = "https://paper-api.alpaca.markets"
+
+[parameters]
+# node = current single-ticker/node-level parameters.
+# global = reserved placeholder for future parent-graph/global parameters.
+scope = "node"
+
+[trade_preferences]
+# These preferences shape single-ticker trade advice. Portfolio-level target
+# weights should still be decided by a future parent portfolio graph.
+risk_profile = "balanced"      # conservative | balanced | aggressive
+trading_style = "staged"       # staged | left_side | right_side | breakout | pullback
+target_return_pct = 0.12
+max_drawdown_pct = 0.08
+expected_holding_days = 20

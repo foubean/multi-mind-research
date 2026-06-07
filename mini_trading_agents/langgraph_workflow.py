@@ -97,6 +97,8 @@ def initial_state(
     max_research_debate_turns: int = 4,
     max_risk_debate_turns: int = 6,
     data_providers: dict[str, str] | None = None,
+    runtime_parameters: dict | None = None,
+    trade_preferences: dict | None = None,
     llm_config: dict | None = None,
 ) -> TradingState:
     providers = data_providers or {
@@ -111,6 +113,15 @@ def initial_state(
         "max_research_debate_turns": max_research_debate_turns,
         "max_risk_debate_turns": max_risk_debate_turns,
         "data_providers": providers,
+        "runtime_parameters": runtime_parameters or {"scope": "node"},
+        "trade_preferences": trade_preferences
+        or {
+            "risk_profile": "balanced",
+            "trading_style": "staged",
+            "target_return_pct": 0.12,
+            "max_drawdown_pct": 0.08,
+            "expected_holding_days": 20,
+        },
         "llm_config": llm_config or {"enabled": False},
         "trace": [],
     }

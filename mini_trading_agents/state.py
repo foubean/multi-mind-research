@@ -98,6 +98,26 @@ class DebateState(TypedDict):
     count: int
 
 
+class TradePreferences(TypedDict):
+    risk_profile: str
+    trading_style: str
+    target_return_pct: float
+    max_drawdown_pct: float
+    expected_holding_days: int
+
+
+class RuntimeParameters(TypedDict):
+    # "node" keeps today's per-node/single-ticker behavior. "global" is a
+    # reserved placeholder for future parent-graph/global parameter handling.
+    scope: str
+
+
+class TradePlanStep(TypedDict):
+    method: str
+    trigger: str
+    fraction: float
+
+
 class TradeProposal(TypedDict):
     action: str
     position_size: str
@@ -105,11 +125,48 @@ class TradeProposal(TypedDict):
     rationale: str
 
 
+class TradeAdvice(TradeProposal):
+    expected_return_pct: float
+    expected_risk_pct: float
+    expected_holding_days: int
+    risk_profile: str
+    trading_style: str
+    entry_plan: TradePlanStep
+    add_position_plan: TradePlanStep
+    reduce_position_plan: TradePlanStep
+    stop_loss_plan: TradePlanStep
+    invalidation_conditions: list[str]
+
+
 class FinalDecision(TypedDict):
     action: str
     position_size: str
     confidence: float
     reason: str
+
+
+class PaperTradingResult(TypedDict):
+    account_id: str
+    status: str
+    action: str
+    order_id: NotRequired[str]
+    fill_id: NotRequired[str]
+    ticker: str
+    target_weight: float
+    quantity_delta: float
+    fill_price: float
+    fee: float
+    cash: float
+    equity: float
+    position_quantity: float
+    average_cost: float
+    market_value: float
+    unrealized_pnl: float
+    realized_pnl: float
+    message: str
+    provider: NotRequired[str]
+    portfolio_history_points: NotRequired[int]
+    broker_order: NotRequired[dict[str, Any]]
 
 
 class TradingState(TypedDict):
@@ -121,6 +178,8 @@ class TradingState(TypedDict):
     max_research_debate_turns: int
     max_risk_debate_turns: int
     data_providers: dict[str, str]
+    runtime_parameters: RuntimeParameters
+    trade_preferences: TradePreferences
     llm_config: NotRequired[dict[str, Any]]
     llm_usage_trace: NotRequired[Annotated[list[dict[str, Any]], operator.add]]
     # Parallel nodes may update trace in the same graph step, so this list needs
@@ -140,8 +199,10 @@ class TradingState(TypedDict):
 
     investment_debate_state: NotRequired[DebateState]
     investment_plan: NotRequired[dict[str, Any]]
-    trader_investment_plan: NotRequired[TradeProposal]
+    trader_investment_plan: NotRequired[TradeAdvice]
+    trade_advice: NotRequired[TradeAdvice]
 
     risk_debate_state: NotRequired[DebateState]
     risk_assessment: NotRequired[dict[str, Any]]
     final_trade_decision: NotRequired[FinalDecision]
+    paper_trading_result: NotRequired[PaperTradingResult]

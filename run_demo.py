@@ -10,6 +10,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.store.sqlite import SqliteStore as LangGraphSqliteStore
 
 from mini_trading_agents.config import DEFAULT_CONFIG_PATH, load_config
+from mini_trading_agents.execution import build_execution_adapter
 from mini_trading_agents.langgraph_workflow import build_demo_workflow, initial_state
 from mini_trading_agents.llm_adapter import get_llm_adapter
 from mini_trading_agents.logging import JsonlRunLogger, make_log_path
@@ -122,6 +123,8 @@ def main() -> None:
             max_research_debate_turns=args.research_turns,
             max_risk_debate_turns=args.risk_turns,
             data_providers=data_providers,
+            runtime_parameters=app_config.parameters.__dict__,
+            trade_preferences=app_config.trade_preferences.__dict__,
             llm_config=app_config.llm.__dict__,
         )
     if args.resume and not args.rerun_resume:
@@ -169,6 +172,13 @@ def main() -> None:
 
         if persistence.decision_memory_enabled:
             _save_store_memory(memory_store, run_id, final_state)
+
+    if app_config.paper_trading.enabled:
+        paper_adapter = build_execution_adapter(
+            app_config.paper_trading,
+            storage_path=storage_path,
+        )
+        final_state["paper_trading_result"] = paper_adapter.apply_decision(run_id, final_state)
 
     if logger:
         logger.event("stream_end", run_id=run_id, state=final_state)
@@ -263,6 +273,13 @@ def _print_state(
     data_status = state.get("data_status")
     if data_status:
         print(f"Data status: {data_status['status']} ({data_status['providers']})")
+    trade_advice = state.get("trade_advice")
+    if trade_advice:
+        print("Trade advice:")
+        print(f"- risk profile: {trade_advice['risk_profile']}")
+        print(f"- trading style: {trade_advice['trading_style']}")
+        print(f"- expected return: {trade_advice['expected_return_pct']}")
+        print(f"- expected risk: {trade_advice['expected_risk_pct']}")
     llm_usage_trace = state.get("llm_usage_trace")
     if llm_usage_trace:
         print("LLM usage:")
@@ -271,6 +288,15 @@ def _print_state(
             if item.get("error_type"):
                 detail += f" - {item['error_type']}: {item.get('error')}"
             print(f"- {detail}")
+    paper_result = state.get("paper_trading_result")
+    if paper_result:
+        print("Paper trading:")
+        print(f"- status: {paper_result['status']}")
+        print(f"- provider: {paper_result.get('provider', 'local')}")
+        print(f"- account: {paper_result['account_id']}")
+        print(f"- equity: {paper_result['equity']}")
+        print(f"- cash: {paper_result['cash']}")
+        print(f"- position: {paper_result['position_quantity']} {paper_result['ticker']}")
     print(f"Storage: {storage_path or 'disabled'}")
     print(f"Checkpoint: {checkpoint_path or 'disabled'}")
     print(f"Memory store: {memory_store_path or 'disabled'}")

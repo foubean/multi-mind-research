@@ -1,5 +1,24 @@
 # Change Log
 
+## 2026-06-07 - Twenty Seventh Update: Local Paper Trading
+
+- Added an independent `mini_trading_agents/execution/` layer for post-workflow execution logic.
+- Added `LocalPaperAdapter` for long-only local paper trading backed by SQLite.
+- Added an `ExecutionAdapter` protocol and execution adapter factory.
+- Added `AlpacaPaperAdapter` for Alpaca paper trading REST API integration.
+- Added `paper_trading.provider` with `local` and `alpaca` support.
+- Added paper trading config with default disabled behavior.
+- Added paper account, position, order, fill, and portfolio snapshot tables.
+- Added idempotent order handling keyed by `run_id` and `account_id`.
+- Added `paper_trading_result` to `TradingState`.
+- Added console and HTML report output for local paper trading results.
+- Added trade preferences config for single-ticker advice generation.
+- Added `parameters.scope` config with `node` as the current behavior and `global` as a reserved placeholder.
+- Expanded trader output into structured `trade_advice` with expected return, expected risk, holding horizon, entry/add/reduce/stop plans, and invalidation conditions.
+- Added `Trade Advice` to the HTML report and console output.
+- Kept `position_size` as a single-ticker conviction bucket; future portfolio parent graphs should convert advice into precise target weights.
+- Clarified that paper trading adapters only map conviction buckets to target weights as a demo execution rule, not as portfolio-level allocation logic.
+
 ## 2026-06-07 - Twenty Sixth Update: Data Lineage Metadata
 
 - Added `mini_trading_agents/data_layer/lineage.py` for shared lineage metadata creation.

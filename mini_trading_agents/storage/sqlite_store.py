@@ -259,6 +259,7 @@ def build_decision_memory_event(run_id: str, state: dict[str, Any]) -> dict[str,
         "action": decision["action"],
         "position_size": decision["position_size"],
         "confidence": decision["confidence"],
+        "trade_advice": state.get("trade_advice"),
     }
     return {
         "event_type": "decision_event",

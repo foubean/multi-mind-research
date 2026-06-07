@@ -235,18 +235,22 @@ def research_manager(state: TradingState) -> TradingState:
 def trader(state: TradingState) -> TradingState:
     llm_result, llm_trace = _maybe_llm_trader(state)
     if llm_result:
-        return {"trader_investment_plan": llm_result, "llm_usage_trace": [llm_trace]}
+        return {"trader_investment_plan": llm_result, "trade_advice": llm_result, "llm_usage_trace": [llm_trace]}
 
     plan = state["investment_plan"]
     action = {"bullish": "BUY", "neutral": "HOLD", "bearish": "SELL"}[plan["stance"]]
     position_size = "small" if plan["score"] < 0.45 else "medium"
+    confidence = min(0.9, 0.5 + abs(plan["score"]) / 2)
+    advice = _build_trade_advice(
+        state,
+        action=action,
+        position_size=position_size,
+        confidence=confidence,
+        rationale=plan["summary"],
+    )
     updates: TradingState = {
-        "trader_investment_plan": {
-            "action": action,
-            "position_size": position_size,
-            "confidence": min(0.9, 0.5 + abs(plan["score"]) / 2),
-            "rationale": plan["summary"],
-        }
+        "trader_investment_plan": advice,
+        "trade_advice": advice,
     }
     if llm_trace:
         updates["llm_usage_trace"] = [llm_trace]
@@ -329,6 +333,12 @@ def portfolio_manager(state: TradingState) -> TradingState:
     action = proposal["action"] if approved else "HOLD"
     position_size = proposal["position_size"] if approved else "none"
     confidence = round(mean([proposal["confidence"], 0.65]), 2)
+    final_advice = dict(proposal)
+    final_advice["action"] = action
+    final_advice["position_size"] = position_size
+    final_advice["confidence"] = confidence
+    if not approved:
+        final_advice["rationale"] = "Risk review rejected the proposal; keep exposure at none."
     updates: TradingState = {
         "risk_assessment": {
             "status": "approved" if approved else "rejected",
@@ -345,6 +355,7 @@ def portfolio_manager(state: TradingState) -> TradingState:
                 else "Rejected because confidence or risk review was insufficient."
             ),
         },
+        "trade_advice": final_advice,
     }
     if llm_trace:
         updates["llm_usage_trace"] = [llm_trace]
@@ -390,6 +401,90 @@ def _append_risk_view(state: TradingState, speaker: str, message: str) -> Tradin
     debate["latest_speaker"] = speaker
     debate["count"] += 1
     return {"risk_debate_state": debate}
+
+
+def _build_trade_advice(
+    state: TradingState,
+    *,
+    action: str,
+    position_size: str,
+    confidence: float,
+    rationale: str,
+) -> dict[str, Any]:
+    preferences = state.get("trade_preferences", {})
+    risk_profile = str(preferences.get("risk_profile", "balanced"))
+    trading_style = str(preferences.get("trading_style", "staged"))
+    target_return = float(preferences.get("target_return_pct", 0.12))
+    max_drawdown = float(preferences.get("max_drawdown_pct", 0.08))
+    holding_days = int(preferences.get("expected_holding_days", 20))
+    risk_multiplier = {"conservative": 0.7, "balanced": 1.0, "aggressive": 1.25}.get(risk_profile, 1.0)
+    expected_return = target_return * confidence * risk_multiplier if action == "BUY" else 0.0
+    expected_risk = max_drawdown * (1.0 if action == "BUY" else 0.4)
+    return {
+        "action": action,
+        "position_size": position_size,
+        "confidence": round(confidence, 3),
+        "rationale": rationale,
+        "expected_return_pct": round(expected_return, 4),
+        "expected_risk_pct": round(expected_risk, 4),
+        "expected_holding_days": holding_days,
+        "risk_profile": risk_profile,
+        "trading_style": trading_style,
+        "entry_plan": _entry_plan(trading_style, action),
+        "add_position_plan": _add_position_plan(trading_style, action),
+        "reduce_position_plan": _reduce_position_plan(risk_profile),
+        "stop_loss_plan": {
+            "method": "technical_invalidation",
+            "trigger": "Reduce or exit if price closes below the major moving-average support with heavy volume.",
+            "fraction": 1.0 if risk_profile == "conservative" else 0.5,
+        },
+        "invalidation_conditions": _invalidation_conditions(state),
+    }
+
+
+def _entry_plan(trading_style: str, action: str) -> dict[str, Any]:
+    if action != "BUY":
+        return {"method": "no_new_entry", "trigger": "No long entry while action is not BUY.", "fraction": 0.0}
+    if trading_style == "left_side":
+        return {"method": "left_side_staged_entry", "trigger": "Start on controlled pullbacks near support.", "fraction": 0.3}
+    if trading_style == "right_side":
+        return {"method": "right_side_confirmation_entry", "trigger": "Enter after breakout or trend confirmation.", "fraction": 0.4}
+    if trading_style == "breakout":
+        return {"method": "breakout_entry", "trigger": "Enter only after breakout with volume confirmation.", "fraction": 0.5}
+    if trading_style == "pullback":
+        return {"method": "pullback_entry", "trigger": "Enter near MA20 or prior support if thesis remains intact.", "fraction": 0.4}
+    return {"method": "staged_entry", "trigger": "Open partial exposure first, then wait for confirmation.", "fraction": 0.4}
+
+
+def _add_position_plan(trading_style: str, action: str) -> dict[str, Any]:
+    if action != "BUY":
+        return {"method": "no_add", "trigger": "No add-on while action is not BUY.", "fraction": 0.0}
+    if trading_style in {"right_side", "breakout"}:
+        return {"method": "right_side_add", "trigger": "Add after a higher high with participation above average.", "fraction": 0.3}
+    return {"method": "staged_add", "trigger": "Add only if price confirms the thesis without breaking risk limits.", "fraction": 0.3}
+
+
+def _reduce_position_plan(risk_profile: str) -> dict[str, Any]:
+    if risk_profile == "conservative":
+        return {"method": "early_trim", "trigger": "Trim quickly when momentum fades or drawdown approaches risk budget.", "fraction": 0.5}
+    if risk_profile == "aggressive":
+        return {"method": "trim_on_invalidation", "trigger": "Trim mainly on thesis deterioration or technical invalidation.", "fraction": 0.25}
+    return {"method": "trim_on_strength_or_risk", "trigger": "Trim on overextension, valuation stress, or risk-budget pressure.", "fraction": 0.33}
+
+
+def _invalidation_conditions(state: TradingState) -> list[str]:
+    conditions = [
+        "Price breaks below major moving averages on heavy volume.",
+        "Analyst signal mix deteriorates from bullish/neutral toward bearish.",
+        "Risk debate identifies unresolved downside or execution risk.",
+    ]
+    market = state.get("market_data", {})
+    fundamentals = state.get("fundamentals_data", {})
+    if market.get("rsi_14", 0) >= 65:
+        conditions.append("Momentum becomes overextended without confirmation from volume.")
+    if fundamentals.get("forward_pe", 0) >= 45:
+        conditions.append("Valuation remains elevated while growth expectations weaken.")
+    return conditions
 
 
 def _maybe_llm_analyst(
@@ -554,27 +649,57 @@ def _maybe_llm_trader(state: TradingState) -> tuple[dict[str, Any] | None, dict[
             state,
             system_prompt=(
                 "You are the trader in a multi-agent trading workflow. Convert the "
-                "research plan into an action proposal with controlled position sizing."
+                "research plan and trade preferences into structured single-ticker trade advice. "
+                "The advice is consumed by a future portfolio parent graph, so position_size is "
+                "a conviction bucket, not a final portfolio weight."
             ),
             payload={
                 "ticker": state["ticker"],
                 "analysis_date": state["analysis_date"],
                 "investment_plan": state["investment_plan"],
+                "trade_preferences": state.get("trade_preferences", {}),
             },
-            schema_name="trade_proposal",
+            schema_name="trade_advice",
             schema={
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["action", "position_size", "confidence", "rationale"],
+                "required": [
+                    "action",
+                    "position_size",
+                    "confidence",
+                    "rationale",
+                    "expected_return_pct",
+                    "expected_risk_pct",
+                    "expected_holding_days",
+                    "risk_profile",
+                    "trading_style",
+                    "entry_plan",
+                    "add_position_plan",
+                    "reduce_position_plan",
+                    "stop_loss_plan",
+                    "invalidation_conditions",
+                ],
                 "properties": {
                     "action": {"type": "string", "enum": ["BUY", "HOLD", "SELL"]},
                     "position_size": {"type": "string", "enum": ["none", "small", "medium", "large"]},
                     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                     "rationale": {"type": "string"},
+                    "expected_return_pct": {"type": "number"},
+                    "expected_risk_pct": {"type": "number"},
+                    "expected_holding_days": {"type": "integer"},
+                    "risk_profile": {"type": "string"},
+                    "trading_style": {"type": "string"},
+                    "entry_plan": _plan_schema(),
+                    "add_position_plan": _plan_schema(),
+                    "reduce_position_plan": _plan_schema(),
+                    "stop_loss_plan": _plan_schema(),
+                    "invalidation_conditions": {"type": "array", "items": {"type": "string"}},
                 },
             },
         )
         result["confidence"] = round(float(result["confidence"]), 3)
+        result["expected_return_pct"] = round(float(result["expected_return_pct"]), 4)
+        result["expected_risk_pct"] = round(float(result["expected_risk_pct"]), 4)
         return result, _llm_trace(node_name, "success", state)
     except Exception as exc:
         raise _llm_error(node_name, exc) from exc
@@ -596,13 +721,14 @@ def _maybe_llm_portfolio_manager(state: TradingState) -> tuple[dict[str, Any] | 
                 "ticker": state["ticker"],
                 "analysis_date": state["analysis_date"],
                 "trader_investment_plan": state["trader_investment_plan"],
+                "trade_preferences": state.get("trade_preferences", {}),
                 "risk_debate_state": state.get("risk_debate_state", {}),
             },
             schema_name="portfolio_decision",
             schema={
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["risk_assessment", "final_trade_decision"],
+                "required": ["risk_assessment", "final_trade_decision", "trade_advice"],
                 "properties": {
                     "risk_assessment": {
                         "type": "object",
@@ -624,12 +750,51 @@ def _maybe_llm_portfolio_manager(state: TradingState) -> tuple[dict[str, Any] | 
                             "reason": {"type": "string"},
                         },
                     },
+                    "trade_advice": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": [
+                            "action",
+                            "position_size",
+                            "confidence",
+                            "rationale",
+                            "expected_return_pct",
+                            "expected_risk_pct",
+                            "expected_holding_days",
+                            "risk_profile",
+                            "trading_style",
+                            "entry_plan",
+                            "add_position_plan",
+                            "reduce_position_plan",
+                            "stop_loss_plan",
+                            "invalidation_conditions",
+                        ],
+                        "properties": {
+                            "action": {"type": "string", "enum": ["BUY", "HOLD", "SELL"]},
+                            "position_size": {"type": "string", "enum": ["none", "small", "medium", "large"]},
+                            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                            "rationale": {"type": "string"},
+                            "expected_return_pct": {"type": "number"},
+                            "expected_risk_pct": {"type": "number"},
+                            "expected_holding_days": {"type": "integer"},
+                            "risk_profile": {"type": "string"},
+                            "trading_style": {"type": "string"},
+                            "entry_plan": _plan_schema(),
+                            "add_position_plan": _plan_schema(),
+                            "reduce_position_plan": _plan_schema(),
+                            "stop_loss_plan": _plan_schema(),
+                            "invalidation_conditions": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
                 },
             },
         )
         result["final_trade_decision"]["confidence"] = round(
             float(result["final_trade_decision"]["confidence"]), 3
         )
+        result["trade_advice"]["confidence"] = round(float(result["trade_advice"]["confidence"]), 3)
+        result["trade_advice"]["expected_return_pct"] = round(float(result["trade_advice"]["expected_return_pct"]), 4)
+        result["trade_advice"]["expected_risk_pct"] = round(float(result["trade_advice"]["expected_risk_pct"]), 4)
         return result, _llm_trace(node_name, "success", state)
     except Exception as exc:
         raise _llm_error(node_name, exc) from exc
@@ -654,6 +819,19 @@ def _invoke_llm(
         schema_name=schema_name,
         schema=schema,
     )
+
+
+def _plan_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["method", "trigger", "fraction"],
+        "properties": {
+            "method": {"type": "string"},
+            "trigger": {"type": "string"},
+            "fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        },
+    }
 
 
 def _llm_trace(

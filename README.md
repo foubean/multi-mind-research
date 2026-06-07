@@ -149,6 +149,99 @@ raw_data_id
 
 That heavier DAG-style lineage should be added later if the system starts doing long-running simulation, repeated backtests, multi-source fusion, distributed execution, or historical impact analysis where one bad upstream data point must be traced across many reports, debates, and decisions.
 
+## Local Paper Trading
+
+The local paper trading layer is independent from the agent workflow. Agents still only produce `final_trade_decision`; the execution layer consumes the final state after the graph finishes.
+
+```text
+final_trade_decision
+  -> LocalPaperAdapter
+  -> paper order / fill / position / portfolio snapshot
+  -> paper_trading_result
+  -> HTML report
+```
+
+The first implementation is long-only and deterministic. It uses a simple
+demo-only conversion from the single-ticker conviction bucket to a local target
+weight so the adapter can create fills and portfolio snapshots:
+
+- `BUY` maps `position_size` to a local paper target weight.
+- `SELL` maps to a zero target weight, which closes the local long position.
+- `HOLD` creates no new order.
+- `none`, `small`, `medium`, and `large` map to 0%, 10%, 25%, and 50%.
+- `market_data.close` is used as the reference fill price.
+- fee and slippage are configurable.
+- repeated runs with the same `run_id` and account return the saved paper order result instead of submitting a duplicate order.
+
+Enable it in local `config.toml`:
+
+```toml
+[paper_trading]
+enabled = true
+provider = "local"
+account_id = "demo"
+initial_cash = 100000
+base_currency = "USD"
+fee_rate = 0.0005
+slippage_bps = 5
+allow_fractional = true
+```
+
+Paper trading uses the same custom SQLite database configured by `persistence.storage_path`. It creates independent tables named `paper_accounts`, `paper_positions`, `paper_orders`, `paper_fills`, and `portfolio_snapshots`. When enabled, the HTML report includes a `Paper Trading` section with account, order, position, and PnL summary.
+
+The execution layer is adapter-based. `provider = "local"` uses the local SQLite paper adapter. `provider = "alpaca"` uses Alpaca's paper trading REST API and reads credentials from environment variables by default:
+
+```toml
+[paper_trading]
+enabled = true
+provider = "alpaca"
+allow_fractional = true
+
+[paper_trading.alpaca]
+api_key_env = "ALPACA_API_KEY"
+api_secret_env = "ALPACA_API_SECRET"
+base_url = "https://paper-api.alpaca.markets"
+```
+
+The Alpaca adapter submits market day orders, uses `client_order_id` for run-level idempotency, refreshes account and position data after submission, and attempts to read one month of daily portfolio history for report metadata.
+
+## Single-Ticker Trade Advice
+
+The single-ticker graph should not decide final portfolio weights in a multi-asset system. Its job is to analyze one ticker and produce structured trade advice that a future parent portfolio graph can compare against other tickers.
+
+Trade preferences come from local config:
+
+```toml
+[parameters]
+scope = "node" # node | global
+
+[trade_preferences]
+risk_profile = "balanced"
+trading_style = "staged"
+target_return_pct = 0.12
+max_drawdown_pct = 0.08
+expected_holding_days = 20
+```
+
+`parameters.scope = "node"` keeps the current single-ticker behavior where each
+run uses its own node-level preferences. `parameters.scope = "global"` is only a
+reserved placeholder for future parent-graph/global parameter handling and does
+not change the current workflow yet.
+
+The trader node now emits `trade_advice` with:
+
+- action and conviction bucket: `BUY/HOLD/SELL` plus `none/small/medium/large`.
+- expected return, expected risk, and expected holding days.
+- risk profile and trading style.
+- entry, add, reduce, and stop-loss plans.
+- invalidation conditions.
+
+`position_size` remains a conviction bucket for the single ticker, not a final
+portfolio allocation. The local paper adapter may temporarily translate that
+bucket into a demo target weight, but a future parent portfolio graph should be
+the only layer that converts multiple tickers' advice into precise
+`target_weight` values under portfolio constraints.
+
 Control debate loops:
 
 ```powershell

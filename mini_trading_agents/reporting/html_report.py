@@ -41,16 +41,20 @@ def render_html_report(state: dict[str, Any], run_id: str) -> str:
         <a class="active" href="#overview">Overview</a>
         <a href="#key-data">Key Data</a>
         <a href="#agent-workflow">Agent Workflow</a>
+        <a href="#trade-advice">Trade Advice</a>
         <a href="#data-lineage">Data Lineage</a>
+        {_paper_nav(state)}
         <a href="#llm-trace">LLM Trace</a>
       </nav>
       {_key_data_section(state)}
     </section>
 
     {_decision_rationale(state)}
+    {_trade_advice_section(state)}
     {_workflow_explorer_section(state)}
     {_data_dashboard_section(state)}
     {_data_lineage_section(state)}
+    {_paper_trading_section(state)}
     {_llm_section(state)}
   </main>
   <a class="back-top" href="#overview" aria-label="Back to top" title="Back to top">^</a>
@@ -89,6 +93,12 @@ def _quote_header(state: dict[str, Any], run_id: str, date: str) -> str:
         </aside>
       </header>
 """
+
+
+def _paper_nav(state: dict[str, Any]) -> str:
+    if not state.get("paper_trading_result"):
+        return ""
+    return '<a href="#paper-trading">Paper Trading</a>'
 
 
 def _key_data_section(state: dict[str, Any]) -> str:
@@ -147,6 +157,54 @@ def _decision_rationale(state: dict[str, Any]) -> str:
       </div>
     </section>
 """
+
+
+def _trade_advice_section(state: dict[str, Any]) -> str:
+    advice = state.get("trade_advice") or state.get("trader_investment_plan")
+    if not advice:
+        return ""
+    invalidations = "".join(f"<li>{_e(item)}</li>" for item in advice.get("invalidation_conditions", []))
+    return f"""
+    <section class="section" id="trade-advice">
+      <h2>Trade Advice</h2>
+      <div class="grid grid-4">
+        {_metric_panel("Preference", [
+            ("Risk Profile", advice.get("risk_profile")),
+            ("Trading Style", advice.get("trading_style")),
+            ("Holding Days", advice.get("expected_holding_days")),
+            ("Conviction", advice.get("position_size")),
+        ])}
+        {_metric_panel("Expectation", [
+            ("Action", advice.get("action")),
+            ("Confidence", _pct(advice.get("confidence"))),
+            ("Expected Return", _pct(advice.get("expected_return_pct"))),
+            ("Expected Risk", _pct(advice.get("expected_risk_pct"))),
+        ])}
+        {_plan_card("Entry", advice.get("entry_plan", {}))}
+        {_plan_card("Add", advice.get("add_position_plan", {}))}
+      </div>
+      <div class="grid grid-3" style="margin-top:16px">
+        {_plan_card("Reduce", advice.get("reduce_position_plan", {}))}
+        {_plan_card("Stop Loss", advice.get("stop_loss_plan", {}))}
+        <div class="panel">
+          <h3>Invalidation Conditions</h3>
+          <ul class="summary">{invalidations}</ul>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px"><p>{_e(advice.get("rationale", ""))}</p></div>
+    </section>
+"""
+
+
+def _plan_card(title: str, plan: dict[str, Any]) -> str:
+    return _metric_panel(
+        title,
+        [
+            ("Method", plan.get("method", "N/A")),
+            ("Fraction", _pct(plan.get("fraction"))),
+            ("Trigger", plan.get("trigger", "N/A")),
+        ],
+    )
 
 
 def _workflow_explorer_section(state: dict[str, Any]) -> str:
@@ -220,6 +278,45 @@ def _data_lineage_section(state: dict[str, Any]) -> str:
     <section class="section" id="data-lineage">
       <h2>Data Lineage</h2>
       <div class="lineage-grid">{cards}</div>
+    </section>
+"""
+
+
+def _paper_trading_section(state: dict[str, Any]) -> str:
+    result = state.get("paper_trading_result")
+    if not result:
+        return ""
+    return f"""
+    <section class="section" id="paper-trading">
+      <h2>Paper Trading</h2>
+      <div class="grid grid-4">
+        {_metric_panel("Account", [
+            ("Status", result.get("status")),
+            ("Account", result.get("account_id")),
+            ("Provider", result.get("provider", "local")),
+            ("Equity", result.get("equity")),
+            ("Cash", result.get("cash")),
+        ])}
+        {_metric_panel("Order", [
+            ("Action", result.get("action")),
+            ("Target Weight", _pct(result.get("target_weight"))),
+            ("Quantity Delta", result.get("quantity_delta")),
+            ("Fill Price", result.get("fill_price")),
+        ])}
+        {_metric_panel("Position", [
+            ("Ticker", result.get("ticker")),
+            ("Quantity", result.get("position_quantity")),
+            ("Average Cost", result.get("average_cost")),
+            ("Market Value", result.get("market_value")),
+        ])}
+        {_metric_panel("PnL", [
+            ("Unrealized", result.get("unrealized_pnl")),
+            ("Realized", result.get("realized_pnl")),
+            ("Fee", result.get("fee")),
+            ("History Points", result.get("portfolio_history_points", "N/A")),
+        ])}
+      </div>
+      <div class="panel" style="margin-top:16px"><p class="summary">{_e(result.get("message", ""))}</p></div>
     </section>
 """
 
