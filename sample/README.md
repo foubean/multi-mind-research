@@ -1,8 +1,7 @@
 # Sample Data Layer
 
-This directory shows the planned input data shape for the four analyst nodes.
-The current demo still uses deterministic mock logic in `mini_trading_agents/agents.py`;
-these files document the next data-provider layer.
+This directory shows the local sample input data shape for the four analyst nodes.
+The current demo can load these files through the `sample` data provider.
 
 Recommended graph position:
 
@@ -34,9 +33,14 @@ Every data object should include:
 - `as_of`: the data snapshot date.
 - `source`: where the data came from, such as `mock`, `provider_name`, or `internal_cache`.
 - `observations`: human-readable facts that an analyst or LLM prompt can use directly.
+- `lineage`: runtime metadata added by the data layer, including provider, adapter, raw source, fetch time, downstream analyst, optional raw reference, and key transforms.
 
 Structured numeric fields are added around this minimum contract so future
 rules, scoring, backtests, and LLM prompts can reuse the same state data.
+
+The sample JSON files do not store `lineage` directly. `load_sample_data()`
+adds it at runtime so the raw examples stay compact while the workflow state
+still carries audit metadata.
 
 ## Intended State Flow
 

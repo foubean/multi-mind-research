@@ -4,6 +4,7 @@ from typing import Any
 
 from mini_trading_agents.data_layer.common import safe_float, safe_ratio, yfinance_client
 from mini_trading_agents.data_layer.fundamentals.base import FundamentalsDataAdapter
+from mini_trading_agents.data_layer.lineage import make_lineage
 
 
 class YahooFundamentalsDataAdapter(FundamentalsDataAdapter):
@@ -68,6 +69,21 @@ class YahooFundamentalsDataAdapter(FundamentalsDataAdapter):
                 forward_pe,
                 debt_to_equity,
                 free_cash_flow,
+            ),
+            "lineage": make_lineage(
+                provider="yahoo",
+                adapter="YahooFundamentalsDataAdapter",
+                raw_source="yfinance.Ticker.info, financials, balance_sheet, cashflow",
+                transforms=[
+                    {"field": "revenue_growth_yoy", "derived_from": ["info.revenueGrowth"], "method": "safe_float"},
+                    {"field": "gross_margin", "derived_from": ["info.grossMargins", "financials.Gross Profit", "financials.Total Revenue"], "method": "provider value or gross_profit/revenue"},
+                    {"field": "operating_margin", "derived_from": ["info.operatingMargins", "financials.Operating Income", "financials.Total Revenue"], "method": "provider value or operating_income/revenue"},
+                    {"field": "pe_ratio", "derived_from": ["info.trailingPE"], "method": "safe_float"},
+                    {"field": "forward_pe", "derived_from": ["info.forwardPE"], "method": "safe_float"},
+                    {"field": "debt_to_equity", "derived_from": ["info.debtToEquity", "balance_sheet.Total Debt", "balance_sheet.Stockholders Equity"], "method": "provider value or total_debt/equity"},
+                    {"field": "free_cash_flow", "derived_from": ["info.freeCashflow", "cashflow.Free Cash Flow"], "method": "provider value or statement fallback"},
+                ],
+                used_by="fundamentals_analyst",
             ),
         }
 

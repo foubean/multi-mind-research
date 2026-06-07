@@ -94,7 +94,7 @@ html { scroll-behavior: smooth; }
 .data-table { display: grid; gap: 11px; }
 .data-row { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid #edf0f5; padding-bottom: 9px; }
 .data-row:last-child { border-bottom: 0; padding-bottom: 0; }
-.data-row strong { text-align: right; }
+.data-row strong { text-align: right; overflow-wrap: anywhere; }
 .range-card { display: grid; gap: 14px; }
 .range-label { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
 .range-track { position: relative; height: 10px; border-radius: 99px; background: #e8edf5; overflow: hidden; }
@@ -161,6 +161,18 @@ svg text { font-family: inherit; fill: var(--ink); font-size: 12px; }
 .chart-label { color: var(--muted); font-size: 13px; }
 .chart-value { text-align: right; font-weight: 650; }
 .source-note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+.lineage-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.lineage-card { display: grid; gap: 12px; align-content: start; }
+.lineage-card h3 { margin: 0; font-size: 15px; }
+.lineage-transforms { display: grid; gap: 8px; }
+.lineage-transform {
+  border-left: 3px solid var(--accent);
+  background: var(--surface-soft);
+  border-radius: 6px;
+  padding: 9px 10px;
+}
+.lineage-transform strong { display: block; font-size: 13px; }
+.lineage-transform span { color: var(--muted); font-size: 12px; }
 .back-top {
   position: fixed;
   right: 42px;

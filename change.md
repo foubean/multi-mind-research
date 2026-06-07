@@ -1,5 +1,14 @@
 # Change Log
 
+## 2026-06-07 - Twenty Sixth Update: Data Lineage Metadata
+
+- Added `mini_trading_agents/data_layer/lineage.py` for shared lineage metadata creation.
+- Added `Lineage` and `LineageTransform` state types.
+- Added lineage metadata to sample data loading and all Yahoo data adapters.
+- Each normalized data slice now records provider, adapter, raw source, fetch time, downstream analyst, optional raw reference, and key transforms.
+- Added a `Data Lineage` section to the HTML report with per-slice source and transform cards.
+- Added `Data Lineage` to the report navigation.
+
 ## 2026-06-06 - Twenty Fifth Update: HTML Report Output
 
 - Added `mini_trading_agents/reporting/` for self-contained HTML report generation.

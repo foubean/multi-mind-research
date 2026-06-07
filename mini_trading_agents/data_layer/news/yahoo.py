@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from mini_trading_agents.data_layer.lineage import make_lineage
 from mini_trading_agents.data_layer.common import yfinance_client
 from mini_trading_agents.data_layer.news.base import NewsDataAdapter
 
@@ -49,6 +50,17 @@ class YahooNewsDataAdapter(NewsDataAdapter):
                 f"Rough keyword sentiment count: {positive} positive, {negative} negative.",
                 "News sentiment is a lightweight keyword heuristic until an LLM/news sentiment model is added.",
             ],
+            "lineage": make_lineage(
+                provider="yahoo",
+                adapter="YahooNewsDataAdapter",
+                raw_source="yfinance.Ticker.news",
+                transforms=[
+                    {"field": "items", "derived_from": ["content", "title", "summary", "provider", "url"], "method": "normalize Yahoo news records"},
+                    {"field": "published_at", "derived_from": ["pubDate", "displayTime", "providerPublishTime"], "method": "first available timestamp"},
+                    {"field": "sentiment", "derived_from": ["title", "summary"], "method": "rough keyword sentiment heuristic"},
+                ],
+                used_by="news_analyst",
+            ),
         }
 
 

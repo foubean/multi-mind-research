@@ -4,6 +4,7 @@ from math import sqrt
 from typing import Any
 
 from mini_trading_agents.data_layer.common import average, pct_change, yfinance_client
+from mini_trading_agents.data_layer.lineage import make_lineage
 from mini_trading_agents.data_layer.market.base import MarketDataAdapter
 
 
@@ -53,6 +54,22 @@ class YahooMarketDataAdapter(MarketDataAdapter):
                 avg_volume_20,
                 rsi14,
                 volatility_20d,
+            ),
+            "lineage": make_lineage(
+                provider="yahoo",
+                adapter="YahooMarketDataAdapter",
+                raw_source="yfinance.Ticker.history(period='6mo', interval='1d')",
+                transforms=[
+                    {"field": "close", "derived_from": ["Close[-1]"], "method": "latest non-null close"},
+                    {"field": "change_pct", "derived_from": ["Close[-1]", "Close[-2]"], "method": "pct_change"},
+                    {"field": "average_volume_20d", "derived_from": ["Volume[-20:]"], "method": "average"},
+                    {"field": "moving_average_20", "derived_from": ["Close[-20:]"], "method": "average"},
+                    {"field": "moving_average_60", "derived_from": ["Close[-60:]"], "method": "average"},
+                    {"field": "rsi_14", "derived_from": ["Close"], "method": "rsi(period=14)"},
+                    {"field": "macd", "derived_from": ["Close"], "method": "ema(12)-ema(26)"},
+                    {"field": "volatility_20d", "derived_from": ["Close[-21:]"], "method": "annualized volatility"},
+                ],
+                used_by="market_analyst",
             ),
         }
 

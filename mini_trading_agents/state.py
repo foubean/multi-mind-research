@@ -11,6 +11,22 @@ class Report(TypedDict):
     summary: str
 
 
+class LineageTransform(TypedDict):
+    field: str
+    derived_from: list[str]
+    method: str
+
+
+class Lineage(TypedDict):
+    provider: str
+    adapter: str
+    raw_source: str
+    fetched_at: str
+    transforms: list[LineageTransform]
+    used_by: str
+    raw_ref: NotRequired[str]
+
+
 class MarketData(TypedDict):
     ticker: str
     as_of: str
@@ -25,6 +41,7 @@ class MarketData(TypedDict):
     macd: float
     volatility_20d: float
     observations: list[str]
+    lineage: NotRequired[Lineage]
 
 
 class SentimentData(TypedDict):
@@ -38,6 +55,7 @@ class SentimentData(TypedDict):
     mention_change_pct_24h: float
     top_topics: list[str]
     observations: list[str]
+    lineage: NotRequired[Lineage]
 
 
 class NewsItem(TypedDict):
@@ -55,6 +73,7 @@ class NewsData(TypedDict):
     source: str
     items: list[NewsItem]
     observations: list[str]
+    lineage: NotRequired[Lineage]
 
 
 class FundamentalsData(TypedDict):
@@ -70,6 +89,7 @@ class FundamentalsData(TypedDict):
     free_cash_flow: float
     cash_and_equivalents: float
     observations: list[str]
+    lineage: NotRequired[Lineage]
 
 
 class DebateState(TypedDict):

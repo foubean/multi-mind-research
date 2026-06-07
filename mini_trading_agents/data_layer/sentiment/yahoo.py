@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from mini_trading_agents.data_layer.common import pct_change, yfinance_client
+from mini_trading_agents.data_layer.lineage import make_lineage
 from mini_trading_agents.data_layer.sentiment.base import SentimentDataAdapter
 
 
@@ -42,6 +43,18 @@ class YahooSentimentDataAdapter(SentimentDataAdapter):
                 f"VIX proxy is {vix_close:.2f}." if vix_close else "VIX proxy was unavailable from Yahoo.",
                 "Sentiment is derived from market proxies, not social-media messages.",
             ],
+            "lineage": make_lineage(
+                provider="yahoo",
+                adapter="YahooSentimentDataAdapter",
+                raw_source="yfinance.Ticker.history for ticker and ^VIX",
+                transforms=[
+                    {"field": "mention_change_pct_24h", "derived_from": ["Close[-1]", "Close[-6]"], "method": "five-day pct_change proxy"},
+                    {"field": "sentiment_score", "derived_from": ["five_day_change", "month_change", "vix_close"], "method": "market proxy scoring"},
+                    {"field": "positive_mentions", "derived_from": ["sentiment_score"], "method": "synthetic mention estimate"},
+                    {"field": "negative_mentions", "derived_from": ["sentiment_score"], "method": "synthetic mention estimate"},
+                ],
+                used_by="sentiment_analyst",
+            ),
         }
 
 

@@ -110,7 +110,44 @@ Disable logs when you only want console output:
 python .\run_demo.py --no-log
 ```
 
-Each successful run also writes a self-contained HTML report to `reports/`. The report includes quote-page style key data, clickable section navigation, an interactive agent workflow explorer, synchronized workflow/diagram/summary highlighting, multi-round debate loops, LLM usage, headline metrics, and lightweight data charts. `reports/` is ignored by git because the files are run artifacts.
+Each successful run also writes a self-contained HTML report to `reports/`. The report includes quote-page style key data, clickable section navigation, an interactive agent workflow explorer, synchronized workflow/diagram/summary highlighting, multi-round debate loops, data lineage, LLM usage, headline metrics, and lightweight data charts. `reports/` is ignored by git because the files are run artifacts.
+
+Each normalized data slice includes lightweight lineage metadata. The lineage records provider, adapter, raw source, fetch time, downstream analyst, optional raw reference, and key transforms used to derive fields such as moving averages, sentiment score, news sentiment, and fundamentals ratios.
+
+## Data Lineage Design
+
+The current lineage model is intentionally lightweight. It is data-slice-level lineage, not full decision-DAG lineage.
+
+Each normalized data object carries a `lineage` field:
+
+```text
+provider/raw source
+  -> adapter
+  -> normalized data fields
+  -> analyst node
+```
+
+This is enough for the current workflow because the system has a short data path, limited iteration depth, and no repeated reuse of the same data slice across many independent decision branches. At this stage the most important audit questions are:
+
+- where the data came from.
+- which adapter fetched or normalized it.
+- which fields were derived and how.
+- which analyst consumed the data.
+- whether the HTML report can trace conclusions back to the source data slice.
+
+The current implementation does not yet model the full downstream decision graph:
+
+```text
+raw_data_id
+  -> normalized_data_id
+  -> analyst_report_id
+  -> debate_turn_id
+  -> trader_proposal_id
+  -> risk_assessment_id
+  -> final_decision_id
+```
+
+That heavier DAG-style lineage should be added later if the system starts doing long-running simulation, repeated backtests, multi-source fusion, distributed execution, or historical impact analysis where one bad upstream data point must be traced across many reports, debates, and decisions.
 
 Control debate loops:
 

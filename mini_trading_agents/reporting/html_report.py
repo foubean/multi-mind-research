@@ -41,6 +41,7 @@ def render_html_report(state: dict[str, Any], run_id: str) -> str:
         <a class="active" href="#overview">Overview</a>
         <a href="#key-data">Key Data</a>
         <a href="#agent-workflow">Agent Workflow</a>
+        <a href="#data-lineage">Data Lineage</a>
         <a href="#llm-trace">LLM Trace</a>
       </nav>
       {_key_data_section(state)}
@@ -49,6 +50,7 @@ def render_html_report(state: dict[str, Any], run_id: str) -> str:
     {_decision_rationale(state)}
     {_workflow_explorer_section(state)}
     {_data_dashboard_section(state)}
+    {_data_lineage_section(state)}
     {_llm_section(state)}
   </main>
   <a class="back-top" href="#overview" aria-label="Back to top" title="Back to top">^</a>
@@ -202,6 +204,55 @@ def _data_dashboard_section(state: dict[str, Any]) -> str:
         {_fundamental_metrics(state.get("fundamentals_data", {}))}
       </div>
     </section>
+"""
+
+
+def _data_lineage_section(state: dict[str, Any]) -> str:
+    cards = "\n".join(
+        [
+            _lineage_card("Market", state.get("market_data", {})),
+            _lineage_card("Sentiment", state.get("sentiment_data", {})),
+            _lineage_card("News", state.get("news_data", {})),
+            _lineage_card("Fundamentals", state.get("fundamentals_data", {})),
+        ]
+    )
+    return f"""
+    <section class="section" id="data-lineage">
+      <h2>Data Lineage</h2>
+      <div class="lineage-grid">{cards}</div>
+    </section>
+"""
+
+
+def _lineage_card(title: str, data: dict[str, Any]) -> str:
+    lineage = data.get("lineage", {})
+    transforms = lineage.get("transforms", [])
+    transform_items = "".join(_lineage_transform(item) for item in transforms[:5])
+    if len(transforms) > 5:
+        transform_items += f'<div class="summary">+ {len(transforms) - 5} more transforms</div>'
+    return f"""
+      <article class="panel lineage-card">
+        <h3>{_e(title)}</h3>
+        <div class="data-table">
+          {_data_row("Provider", lineage.get("provider", data.get("source", "N/A")))}
+          {_data_row("Adapter", lineage.get("adapter", "N/A"))}
+          {_data_row("Raw Source", lineage.get("raw_source", "N/A"))}
+          {_data_row("Raw Ref", lineage.get("raw_ref", "N/A"))}
+          {_data_row("Fetched At", _short_time(lineage.get("fetched_at")))}
+          {_data_row("Used By", lineage.get("used_by", data.get("used_by", "N/A")))}
+        </div>
+        <div class="lineage-transforms">{transform_items or '<p class="summary">No transform metadata recorded.</p>'}</div>
+      </article>
+"""
+
+
+def _lineage_transform(item: dict[str, Any]) -> str:
+    derived_from = ", ".join(str(value) for value in item.get("derived_from", []))
+    return f"""
+      <div class="lineage-transform">
+        <strong>{_e(item.get("field", "unknown_field"))}</strong>
+        <span>{_e(item.get("method", "unknown method"))} | from {_e(derived_from or "N/A")}</span>
+      </div>
 """
 
 
@@ -599,6 +650,13 @@ def _first_sentence(value: Any) -> str:
     for delimiter in (". ", "; "):
         if delimiter in text:
             return text.split(delimiter, 1)[0] + delimiter.strip()
+    return text
+
+
+def _short_time(value: Any) -> str:
+    text = str(value or "N/A")
+    if len(text) > 22:
+        return text[:22]
     return text
 
 
