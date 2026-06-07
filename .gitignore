@@ -4,3 +4,4 @@ logs/
 .cache/
 /storage/
 /config.toml
+/reports/

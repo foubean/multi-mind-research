@@ -76,7 +76,7 @@ Test the configured OpenAI-compatible connection without running the full workfl
 python .\scripts\test_openai_connection.py --config .\config.toml
 ```
 
-When enabled, `research_manager`, `trader`, and `portfolio_manager` use the OpenAI Responses API with structured JSON output. The analyst and debate nodes remain deterministic for now.
+When enabled, every role node can use the OpenAI Responses API with structured JSON output. This includes analysts, bull/bear researchers, research manager, trader, risk debaters, and portfolio manager.
 
 If an LLM call fails while enabled, the workflow stops with an error. There is no automatic fallback in LLM mode.
 
@@ -109,6 +109,8 @@ Disable logs when you only want console output:
 ```powershell
 python .\run_demo.py --no-log
 ```
+
+Each successful run also writes a self-contained HTML report to `reports/`. The report includes quote-page style key data, clickable section navigation, an interactive agent workflow explorer, synchronized workflow/diagram/summary highlighting, multi-round debate loops, LLM usage, headline metrics, and lightweight data charts. `reports/` is ignored by git because the files are run artifacts.
 
 Control debate loops:
 

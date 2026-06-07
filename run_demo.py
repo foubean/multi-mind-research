@@ -13,6 +13,7 @@ from mini_trading_agents.config import DEFAULT_CONFIG_PATH, load_config
 from mini_trading_agents.langgraph_workflow import build_demo_workflow, initial_state
 from mini_trading_agents.llm_adapter import get_llm_adapter
 from mini_trading_agents.logging import JsonlRunLogger, make_log_path
+from mini_trading_agents.reporting import make_report_path, write_html_report
 from mini_trading_agents.storage import SqliteStore, build_decision_memory_event
 
 
@@ -176,6 +177,8 @@ def main() -> None:
     if store and persistence.decision_memory_enabled:
         store.save_decision_memory(run_id, final_state)
     state = final_state
+    report_path = make_report_path("reports", state["ticker"], state["analysis_date"])
+    write_html_report(report_path, state, run_id)
 
     _print_state(
         state,
@@ -184,6 +187,7 @@ def main() -> None:
         persistence.checkpoint_path if persistence.checkpoint_enabled else None,
         persistence.memory_store_path if persistence.decision_memory_enabled else None,
         log_path=log_path,
+        report_path=report_path,
         pretty=args.pretty,
     )
 
@@ -231,6 +235,7 @@ def _print_state(
     memory_store_path: str | None,
     log_path,
     pretty: bool,
+    report_path=None,
 ) -> None:
     if pretty:
         print(json.dumps(state, indent=2, ensure_ascii=False))
@@ -238,6 +243,8 @@ def _print_state(
         print(f"Storage: {storage_path or 'disabled'}")
         print(f"Checkpoint: {checkpoint_path or 'disabled'}")
         print(f"Memory store: {memory_store_path or 'disabled'}")
+        if report_path:
+            print(f"HTML report: {report_path}")
         if log_path:
             print(f"\nLog file: {log_path}")
         return
@@ -267,6 +274,8 @@ def _print_state(
     print(f"Storage: {storage_path or 'disabled'}")
     print(f"Checkpoint: {checkpoint_path or 'disabled'}")
     print(f"Memory store: {memory_store_path or 'disabled'}")
+    if report_path:
+        print(f"HTML report: {report_path}")
     if log_path:
         print(f"Log file: {log_path}")
     print()

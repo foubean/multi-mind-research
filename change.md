@@ -1,5 +1,19 @@
 # Change Log
 
+## 2026-06-06 - Twenty Fifth Update: HTML Report Output
+
+- Added `mini_trading_agents/reporting/` for self-contained HTML report generation.
+- Added `reporting/report_theme.py` to keep report style, visual tokens, and layout rules stable.
+- Added automatic HTML report output under `reports/` after successful workflow runs.
+- Added workflow overview, debate loop diagram, node summaries, LLM usage, final decision, and target data dashboards.
+- Added inline metric and bar-chart rendering for market, sentiment, news, and fundamentals data.
+- Refined the HTML layout toward a financial quote-page structure: quote header, key data table, technical position bars, stage summaries, workflow visualization, and debate details.
+- Added clickable report navigation anchors and an interactive workflow explorer that synchronizes selected workflow steps, SVG diagram highlights, and the active stage summary card.
+- Moved investment and risk debate loops into their corresponding Research and Risk summary cards, removing isolated debate sections from the lower report page.
+- Reworked the workflow explorer layout into a vertical stack: workflow controls first, diagram second, selected stage summary below.
+- Added `/reports/` to `.gitignore`.
+- No additional agent nodes were required; the report is rendered from the final `TradingState`.
+
 ## 2026-06-06 - Twenty Fourth Update: Final LLM Integration Shape
 
 - Confirmed every role node now supports LLM mode.
