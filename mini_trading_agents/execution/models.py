@@ -46,3 +46,14 @@ class PositionSnapshot:
     market_value: float
     unrealized_pnl: float
     realized_pnl: float
+
+
+def latest_prices_from_portfolio_state(state: dict) -> dict[str, float]:
+    prices: dict[str, float] = {}
+    for result in state.get("ticker_results", []):
+        ticker = str(result.get("ticker", "")).upper()
+        final_state = result.get("final_state") or {}
+        market = final_state.get("market_data") or {}
+        if ticker and market.get("close") is not None:
+            prices[ticker] = float(market["close"])
+    return prices

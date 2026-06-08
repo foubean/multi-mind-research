@@ -1,5 +1,53 @@
 # Change Log
 
+Todo section IDs:
+
+- `LG-WORKFLOW`: LangGraph 流程增强
+- `PAPER-TRADING`: 模拟交易强化
+- `META-ROADMAP`: 原始方向保留
+
+Future change entries should include `Todo: <ID>` when they primarily belong to one of these sections.
+
+## 2026-06-08 - Thirtieth Update: Portfolio Paper Trading Execution
+
+Todo: `PAPER-TRADING`
+
+- Added portfolio-level execution adapter support via `apply_portfolio_plan`.
+- Implemented `LocalPaperAdapter.apply_portfolio_plan()` for multi-ticker local paper orders, fills, position updates, and portfolio snapshots.
+- Implemented Alpaca portfolio paper order submission with idempotent client order ids and a no-order account-read validation path.
+- Added explicit `--execute-paper` to `run_portfolio_demo.py`; analysis runs do not submit paper orders unless this flag is present.
+- Added pre-execution guards so rejected or invalid portfolio plans cannot be submitted to paper adapters.
+- Wrote portfolio paper execution results into `paper_trading_result` and the HTML report.
+- Added `trade_outcomes` open-outcome writes for portfolio paper executions, including portfolio run id, order id, fill id, target weight, actual weight, and paper order metadata.
+- Verified Alpaca paper account read connectivity without submitting orders.
+
+## 2026-06-08 - Twenty Ninth Update: Portfolio Workflow Hardening
+
+Todo: `LG-WORKFLOW`
+
+- Added local paper-account context loading for the global portfolio graph, with fallback to configured initial cash.
+- Added richer portfolio constraints including no-trade symbols, max new positions, turnover, minimum order value, sector/theme/correlation placeholders, and cooldown placeholders.
+- Added cross-section summaries for action distribution, confidence ranking, risk/return ranking, failed tickers, and theme clusters.
+- Enhanced portfolio context with current positions, account source, constraints, cross-section data, and recent-memory placeholder.
+- Strengthened portfolio research and risk summaries with conflict detection, candidate distribution, existing position overlap, and concentration notes.
+- Added three validation layers: preflight, portfolio plan validation, and execution plan validation.
+- Updated deterministic demo allocation to obey max turnover and avoid rounding-induced constraint violations.
+- Added global portfolio graph checkpoint, snapshot, and portfolio decision memory/store persistence.
+- Expanded portfolio HTML reports with cross-section, execution validation, single-ticker node drilldown, and richer order details.
+- Clarified the LLM portfolio manager as the soft decision layer and deterministic validation as the hard constraint layer.
+
+## 2026-06-08 - Twenty Eighth Update: Global Portfolio Graph Branch
+
+Todo: `LG-WORKFLOW`
+
+- Added `global-portfolio-graph` branch work for a portfolio-level parent graph.
+- Added `mini_trading_agents/portfolio_graph/` with global state, workflow, deterministic nodes, LLM portfolio manager wrapper, constraints, and HTML report generation.
+- Added dynamic LangGraph fan-out from ticker tasks into reusable single-ticker subgraph runs.
+- Added preflight validation before single-ticker work and post-plan validation with repairable revision routing.
+- Added portfolio config and hard constraints under `[portfolio]` and `[portfolio.constraints]`.
+- Added `run_portfolio_demo.py` for multi-ticker portfolio graph runs.
+- Kept LLM portfolio management as the intended final decision layer when LLM is enabled; deterministic portfolio planning is only a no-key demo mode.
+
 ## 2026-06-07 - Twenty Seventh Update: Local Paper Trading
 
 - Added an independent `mini_trading_agents/execution/` layer for post-workflow execution logic.
@@ -15,6 +63,7 @@
 - Added trade preferences config for single-ticker advice generation.
 - Added `parameters.scope` config with `node` as the current behavior and `global` as a reserved placeholder.
 - Added `trade_intent` to single-ticker trade advice so coarse `BUY/HOLD/SELL` actions can express finer intent such as `watch`, `wait`, `open`, `add`, `reduce`, or `exit`.
+- Clarified and normalized expected return/risk as fractional, non-annualized values for `expected_holding_days`, preventing LLM outputs like `10` from rendering as `1000%`.
 - Expanded trader output into structured `trade_advice` with expected return, expected risk, holding horizon, entry/add/reduce/stop plans, and invalidation conditions.
 - Added `Trade Advice` to the HTML report and console output.
 - Kept `position_size` as a single-ticker conviction bucket; future portfolio parent graphs should convert advice into precise target weights.

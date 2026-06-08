@@ -232,7 +232,9 @@ The trader node now emits `trade_advice` with:
 
 - action and conviction bucket: `BUY/HOLD/SELL` plus `none/small/medium/large`.
 - trade intent: `open/add/reduce/exit/watch/wait`. `HOLD + watch` is the current observation/standby case.
-- expected return, expected risk, and expected holding days.
+- expected return, expected risk, and expected holding days. Return/risk values
+  are fractional values for that configured holding period, not annualized and
+  not 3/5/10-year projections, so `0.10` means 10% over `expected_holding_days`.
 - risk profile and trading style.
 - entry, add, reduce, and stop-loss plans.
 - invalidation conditions.
@@ -242,6 +244,64 @@ portfolio allocation. The local paper adapter may temporarily translate that
 bucket into a demo target weight, but a future parent portfolio graph should be
 the only layer that converts multiple tickers' advice into precise
 `target_weight` values under portfolio constraints.
+
+## Global Portfolio Graph
+
+`run_portfolio_demo.py` runs a portfolio-level parent graph that treats the
+single-ticker LangGraph as a reusable computation node. The parent graph fans
+out ticker tasks, collects each ticker's `trade_advice`, builds portfolio
+context, asks a portfolio manager for final target weights, validates hard
+constraints, revises repairable plans, and emits an execution plan plus a
+portfolio HTML report.
+
+```powershell
+python .\run_portfolio_demo.py --config .\config.example.toml --tickers NVDA,AAPL,MSFT --date 2026-06-05 --data-provider sample
+```
+
+The portfolio manager uses the configured LLM when `[llm].enabled = true`; if
+LLM is disabled, the script uses a deterministic demo plan so the graph skeleton
+can be tested without API keys. Hard constraints are checked before ticker
+fan-out and again after the portfolio plan:
+
+```toml
+[portfolio]
+max_revision_count = 2
+single_ticker_failure_policy = "fail_fast"
+
+[portfolio.constraints]
+long_only = true
+max_single_position_pct = 0.25
+max_total_equity_pct = 0.85
+cash_reserve_pct = 0.05
+max_turnover_pct = 0.2
+max_new_positions = 5
+min_order_value = 100
+```
+
+The parent graph now has three validation layers:
+
+- `preflight_validate`: checks ticker list, no-trade symbols, data provider
+  config, LLM config, and portfolio constraint sanity before expensive work.
+- `validate_portfolio_plan`: checks target weights, cash reserve, long-only,
+  single-position caps, max new positions, and plan turnover.
+- `validate_execution_plan`: checks order-level feasibility such as turnover and
+  minimum order value before execution handoff.
+
+`load_account_context` first tries to read local paper-trading account,
+positions, and recent portfolio snapshots from `persistence.storage_path`. If no
+paper account exists yet, it falls back to configured initial cash. The global
+report includes cross-section rankings, action distribution, risk and execution
+validation, single-ticker node drilldown, target weights, and planned orders.
+
+`run_portfolio_demo.py` uses LangGraph streaming with checkpoint, custom
+snapshot, and decision memory/store support, matching the single-ticker runner's
+persistence model. Portfolio-level memory events use
+`scope_type = "portfolio"` and `scope_id = "global"`.
+
+The LLM portfolio manager is the soft decision layer. Deterministic validation is
+the hard constraint layer. The validator should not silently invent a portfolio;
+it classifies violations and either routes to revision or rejects an infeasible
+plan with the partial ticker results preserved.
 
 Control debate loops:
 

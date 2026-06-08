@@ -178,8 +178,8 @@ def _trade_advice_section(state: dict[str, Any]) -> str:
             ("Action", advice.get("action")),
             ("Intent", advice.get("trade_intent", "N/A")),
             ("Confidence", _pct(advice.get("confidence"))),
-            ("Expected Return", _pct(advice.get("expected_return_pct"))),
-            ("Expected Risk", _pct(advice.get("expected_risk_pct"))),
+            (_period_label("Expected Return", advice), _pct(advice.get("expected_return_pct"))),
+            (_period_label("Expected Risk", advice), _pct(advice.get("expected_risk_pct"))),
         ])}
         {_plan_card("Entry", advice.get("entry_plan", {}))}
         {_plan_card("Add", advice.get("add_position_plan", {}))}
@@ -206,6 +206,11 @@ def _plan_card(title: str, plan: dict[str, Any]) -> str:
             ("Trigger", plan.get("trigger", "N/A")),
         ],
     )
+
+
+def _period_label(label: str, advice: dict[str, Any]) -> str:
+    days = advice.get("expected_holding_days")
+    return f"{label} ({days}d, not annualized)" if days else f"{label} (not annualized)"
 
 
 def _workflow_explorer_section(state: dict[str, Any]) -> str:

@@ -697,8 +697,14 @@ def _maybe_llm_trader(state: TradingState) -> tuple[dict[str, Any] | None, dict[
                     "position_size": {"type": "string", "enum": ["none", "small", "medium", "large"]},
                     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                     "rationale": {"type": "string"},
-                    "expected_return_pct": {"type": "number"},
-                    "expected_risk_pct": {"type": "number"},
+                    "expected_return_pct": {
+                        "type": "number",
+                        "description": "Fractional expected return for expected_holding_days, not annualized and not multi-year; use 0.10 for 10%, not 10.",
+                    },
+                    "expected_risk_pct": {
+                        "type": "number",
+                        "description": "Fractional expected downside/risk for expected_holding_days, not annualized and not multi-year; use 0.08 for 8%, not 8.",
+                    },
                     "expected_holding_days": {"type": "integer"},
                     "risk_profile": {"type": "string"},
                     "trading_style": {"type": "string"},
@@ -711,8 +717,8 @@ def _maybe_llm_trader(state: TradingState) -> tuple[dict[str, Any] | None, dict[
             },
         )
         result["confidence"] = round(float(result["confidence"]), 3)
-        result["expected_return_pct"] = round(float(result["expected_return_pct"]), 4)
-        result["expected_risk_pct"] = round(float(result["expected_risk_pct"]), 4)
+        result["expected_return_pct"] = _normalize_fraction(result["expected_return_pct"])
+        result["expected_risk_pct"] = _normalize_fraction(result["expected_risk_pct"])
         return result, _llm_trace(node_name, "success", state)
     except Exception as exc:
         raise _llm_error(node_name, exc) from exc
@@ -789,8 +795,14 @@ def _maybe_llm_portfolio_manager(state: TradingState) -> tuple[dict[str, Any] | 
                             "position_size": {"type": "string", "enum": ["none", "small", "medium", "large"]},
                             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                             "rationale": {"type": "string"},
-                            "expected_return_pct": {"type": "number"},
-                            "expected_risk_pct": {"type": "number"},
+                            "expected_return_pct": {
+                                "type": "number",
+                                "description": "Fractional expected return for expected_holding_days, not annualized and not multi-year; use 0.10 for 10%, not 10.",
+                            },
+                            "expected_risk_pct": {
+                                "type": "number",
+                                "description": "Fractional expected downside/risk for expected_holding_days, not annualized and not multi-year; use 0.08 for 8%, not 8.",
+                            },
                             "expected_holding_days": {"type": "integer"},
                             "risk_profile": {"type": "string"},
                             "trading_style": {"type": "string"},
@@ -808,8 +820,8 @@ def _maybe_llm_portfolio_manager(state: TradingState) -> tuple[dict[str, Any] | 
             float(result["final_trade_decision"]["confidence"]), 3
         )
         result["trade_advice"]["confidence"] = round(float(result["trade_advice"]["confidence"]), 3)
-        result["trade_advice"]["expected_return_pct"] = round(float(result["trade_advice"]["expected_return_pct"]), 4)
-        result["trade_advice"]["expected_risk_pct"] = round(float(result["trade_advice"]["expected_risk_pct"]), 4)
+        result["trade_advice"]["expected_return_pct"] = _normalize_fraction(result["trade_advice"]["expected_return_pct"])
+        result["trade_advice"]["expected_risk_pct"] = _normalize_fraction(result["trade_advice"]["expected_risk_pct"])
         return result, _llm_trace(node_name, "success", state)
     except Exception as exc:
         raise _llm_error(node_name, exc) from exc
@@ -851,6 +863,13 @@ def _plan_schema() -> dict[str, Any]:
 
 def _trade_intent_schema() -> dict[str, Any]:
     return {"type": "string", "enum": ["open", "add", "reduce", "exit", "watch", "wait"]}
+
+
+def _normalize_fraction(value: Any) -> float:
+    number = float(value)
+    if abs(number) > 1:
+        number = number / 100
+    return round(number, 4)
 
 
 def _llm_trace(

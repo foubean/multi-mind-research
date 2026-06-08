@@ -279,8 +279,9 @@ def _print_state(
         print(f"- intent: {trade_advice.get('trade_intent', 'N/A')}")
         print(f"- risk profile: {trade_advice['risk_profile']}")
         print(f"- trading style: {trade_advice['trading_style']}")
-        print(f"- expected return: {trade_advice['expected_return_pct']}")
-        print(f"- expected risk: {trade_advice['expected_risk_pct']}")
+        holding_days = trade_advice.get("expected_holding_days", "N/A")
+        print(f"- expected return ({holding_days}d, not annualized): {trade_advice['expected_return_pct']}")
+        print(f"- expected risk ({holding_days}d, not annualized): {trade_advice['expected_risk_pct']}")
     llm_usage_trace = state.get("llm_usage_trace")
     if llm_usage_trace:
         print("LLM usage:")

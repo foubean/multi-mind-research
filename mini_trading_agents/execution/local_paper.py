@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from mini_trading_agents.execution.models import PaperTradingSettings, TARGET_WEIGHTS
+from mini_trading_agents.execution.models import PaperTradingSettings, TARGET_WEIGHTS, latest_prices_from_portfolio_state
 
 
 class LocalPaperAdapter:
@@ -132,6 +132,39 @@ class LocalPaperAdapter:
             )
             self._save_snapshot(conn, run_id, state, result)
             return result
+
+    def apply_portfolio_plan(self, run_id: str, state: dict[str, Any]) -> dict[str, Any]:
+        execution_plan = state.get("execution_plan") or {}
+        orders = execution_plan.get("orders", [])
+        if not orders:
+            return {
+                "provider": "local",
+                "status": "no_order",
+                "account_id": self.settings.account_id,
+                "orders": [],
+                "message": "No portfolio paper orders generated.",
+            }
+        prices = latest_prices_from_portfolio_state(state)
+        results = []
+        with self._connect() as conn:
+            self._ensure_account(conn)
+            for order in orders:
+                ticker = str(order["ticker"]).upper()
+                price = prices.get(ticker)
+                if not price:
+                    results.append(_portfolio_order_result(order, "skipped", "Missing latest price.", provider="local"))
+                    continue
+                result = self._apply_portfolio_order(conn, run_id, state, order, ticker, price)
+                results.append(result)
+            account = self._account(conn)
+        return {
+            "provider": "local",
+            "status": _portfolio_status(results),
+            "account_id": self.settings.account_id,
+            "cash": round(float(account["cash"]), 4),
+            "orders": results,
+            "message": f"Processed {len(results)} local portfolio paper orders.",
+        }
 
     def _initialize(self) -> None:
         with self._connect() as conn:
@@ -358,6 +391,170 @@ class LocalPaperAdapter:
             ),
         )
 
+    def _apply_portfolio_order(
+        self,
+        conn: sqlite3.Connection,
+        run_id: str,
+        state: dict[str, Any],
+        order: dict[str, Any],
+        ticker: str,
+        last_price: float,
+    ) -> dict[str, Any]:
+        order_run_id = f"{run_id}:{ticker}"
+        existing = conn.execute(
+            "select result_json from paper_orders where run_id = ? and account_id = ?",
+            (order_run_id, self.settings.account_id),
+        ).fetchone()
+        if existing:
+            result = json.loads(existing["result_json"])
+            result["status"] = "duplicate"
+            result["message"] = "Portfolio paper order for this ticker/run already exists."
+            return result
+
+        self._ensure_account(conn)
+        account = self._account(conn)
+        position = self._position(conn, ticker)
+        equity = float(state.get("account_context", {}).get("equity") or execution_equity(state) or float(account["cash"]))
+        target_weight = float(order["target_weight"])
+        target_value = equity * target_weight
+        current_value = float(position["quantity"]) * last_price
+        delta_value = target_value - current_value
+        side = _side_from_delta(delta_value)
+        quantity_delta = _quantity_from_delta(delta_value, last_price, self.settings.allow_fractional)
+
+        if quantity_delta == 0:
+            return _portfolio_order_result(order, "no_order", "Order delta is zero.", provider="local")
+
+        fill_price = _fill_price(last_price, side, self.settings.slippage_bps)
+        gross = abs(quantity_delta) * fill_price
+        fee = round(gross * self.settings.fee_rate, 6)
+        cash_delta = -gross - fee if side == "BUY" else gross - fee
+        if side == "BUY" and float(account["cash"]) + cash_delta < -1e-6:
+            return _portfolio_order_result(order, "rejected", "Insufficient local paper cash.", provider="local")
+
+        order_id = f"po_{uuid4().hex[:12]}"
+        fill_id = f"pf_{uuid4().hex[:12]}"
+        now = _now()
+        synthetic_state = {"ticker": ticker}
+        self._insert_order(conn, order_id, order_run_id, synthetic_state, side, "PORTFOLIO_REBALANCE", target_weight, quantity_delta, None)
+        realized_delta = self._apply_fill(conn, ticker, side, quantity_delta, fill_price, fee, cash_delta)
+        conn.execute(
+            "update paper_accounts set cash = cash + ?, updated_at = ? where account_id = ?",
+            (cash_delta, now, self.settings.account_id),
+        )
+        conn.execute(
+            """
+            insert into paper_fills (
+                fill_id, order_id, account_id, ticker, side, quantity, fill_price,
+                gross_value, fee, realized_pnl_delta, created_at
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (fill_id, order_id, self.settings.account_id, ticker, side, abs(quantity_delta), fill_price, gross, fee, realized_delta, now),
+        )
+        result = self._portfolio_order_result_from_db(
+            conn=conn,
+            run_id=order_run_id,
+            portfolio_run_id=run_id,
+            ticker=ticker,
+            order=order,
+            status="filled",
+            side=side,
+            target_weight=target_weight,
+            quantity_delta=quantity_delta if side == "BUY" else -abs(quantity_delta),
+            fill_price=fill_price,
+            fee=fee,
+            order_id=order_id,
+            fill_id=fill_id,
+            message=f"Filled local portfolio {side} order.",
+        )
+        conn.execute(
+            "update paper_orders set status = ?, result_json = ?, updated_at = ? where order_id = ?",
+            ("filled", _json(result), now, order_id),
+        )
+        self._save_portfolio_order_snapshot(conn, order_run_id, ticker, result)
+        return result
+
+    def _portfolio_order_result_from_db(
+        self,
+        *,
+        conn: sqlite3.Connection,
+        run_id: str,
+        portfolio_run_id: str,
+        ticker: str,
+        order: dict[str, Any],
+        status: str,
+        side: str,
+        target_weight: float,
+        quantity_delta: float,
+        fill_price: float,
+        fee: float,
+        order_id: str,
+        fill_id: str,
+        message: str,
+    ) -> dict[str, Any]:
+        position = self._position(conn, ticker)
+        account = self._account(conn)
+        quantity = float(position["quantity"])
+        average_cost = float(position["average_cost"])
+        market_value = quantity * fill_price
+        unrealized = (fill_price - average_cost) * quantity if quantity else 0.0
+        realized = float(position["realized_pnl"])
+        equity = float(account["cash"]) + market_value
+        return {
+            "provider": "local",
+            "portfolio_run_id": portfolio_run_id,
+            "run_id": run_id,
+            "account_id": self.settings.account_id,
+            "status": status,
+            "ticker": ticker,
+            "side": side,
+            "target_weight": round(target_weight, 4),
+            "actual_weight": round(market_value / equity, 6) if equity else 0.0,
+            "quantity_delta": round(quantity_delta, 8),
+            "fill_price": round(fill_price, 4),
+            "fee": round(fee, 6),
+            "cash": round(float(account["cash"]), 4),
+            "equity": round(equity, 4),
+            "position_quantity": round(quantity, 8),
+            "average_cost": round(average_cost, 4),
+            "market_value": round(market_value, 4),
+            "unrealized_pnl": round(unrealized, 4),
+            "realized_pnl": round(realized, 4),
+            "estimated_delta_value": order.get("estimated_delta_value"),
+            "order_id": order_id,
+            "fill_id": fill_id,
+            "message": message,
+        }
+
+    def _save_portfolio_order_snapshot(self, conn: sqlite3.Connection, run_id: str, ticker: str, result: dict[str, Any]) -> None:
+        now = _now()
+        conn.execute(
+            """
+            insert into portfolio_snapshots (
+                run_id, account_id, ticker, cash, equity, position_quantity,
+                average_cost, last_price, market_value, unrealized_pnl,
+                realized_pnl, snapshot_json, created_at
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                self.settings.account_id,
+                ticker,
+                result["cash"],
+                result["equity"],
+                result["position_quantity"],
+                result["average_cost"],
+                result["fill_price"],
+                result["market_value"],
+                result["unrealized_pnl"],
+                result["realized_pnl"],
+                _json(result),
+                now,
+            ),
+        )
+
     def _result(
         self,
         *,
@@ -464,3 +661,32 @@ def _json(value: dict[str, Any]) -> str:
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def execution_equity(state: dict[str, Any]) -> float:
+    return float((state.get("execution_plan") or {}).get("equity") or 0)
+
+
+def _portfolio_order_result(order: dict[str, Any], status: str, message: str, *, provider: str) -> dict[str, Any]:
+    return {
+        "provider": provider,
+        "status": status,
+        "ticker": str(order.get("ticker", "")),
+        "side": str(order.get("side", "")),
+        "target_weight": float(order.get("target_weight", 0) or 0),
+        "actual_weight": 0.0,
+        "quantity_delta": 0.0,
+        "fill_price": 0.0,
+        "fee": 0.0,
+        "message": message,
+    }
+
+
+def _portfolio_status(results: list[dict[str, Any]]) -> str:
+    if not results:
+        return "no_order"
+    if any(result.get("status") in {"filled", "submitted", "accepted", "pending_new"} for result in results):
+        return "submitted"
+    if any(result.get("status") == "rejected" for result in results):
+        return "rejected"
+    return str(results[0].get("status", "unknown"))

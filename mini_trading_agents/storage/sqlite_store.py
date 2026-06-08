@@ -30,7 +30,7 @@ class SqliteStore:
                 """,
                 (
                     run_id,
-                    state["ticker"],
+                    state.get("ticker", "PORTFOLIO"),
                     state["analysis_date"],
                     status,
                     now,
@@ -135,6 +135,94 @@ class SqliteStore:
                     now,
                 ),
             )
+
+    def save_portfolio_memory(self, run_id: str, state: dict[str, Any]) -> None:
+        plan = state.get("portfolio_plan")
+        if not plan:
+            return
+        now = _now()
+        memory_event = build_portfolio_memory_event(run_id, state)
+        with self._connect() as conn:
+            conn.execute(
+                """
+                insert into memory_events (
+                    run_id, event_type, scope_type, scope_id, ticker, analysis_date,
+                    summary, metadata_json, event_json, created_at
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    memory_event["event_type"],
+                    memory_event["scope_type"],
+                    memory_event["scope_id"],
+                    None,
+                    memory_event["analysis_date"],
+                    memory_event["summary"],
+                    _json(memory_event["metadata"]),
+                    _json(memory_event),
+                    now,
+                ),
+            )
+
+    def save_trade_outcomes_from_paper_execution(self, run_id: str, state: dict[str, Any]) -> None:
+        execution = state.get("paper_trading_result") or {}
+        orders = execution.get("orders", [])
+        if not orders:
+            return
+        now = _now()
+        with self._connect() as conn:
+            for order in orders:
+                if order.get("status") not in {"filled", "submitted", "accepted", "pending_new", "new"}:
+                    continue
+                ticker = str(order.get("ticker", "")).upper()
+                outcome_run_id = f"{run_id}:{ticker}"
+                outcome_json = {
+                    "portfolio_run_id": run_id,
+                    "ticker": ticker,
+                    "provider": execution.get("provider"),
+                    "order_id": order.get("order_id"),
+                    "fill_id": order.get("fill_id"),
+                    "target_weight": order.get("target_weight"),
+                    "actual_weight": order.get("actual_weight"),
+                    "quantity": order.get("position_quantity"),
+                    "quantity_delta": order.get("quantity_delta"),
+                    "status": order.get("status"),
+                    "paper_order": order,
+                }
+                conn.execute(
+                    """
+                    insert into trade_outcomes (
+                        run_id, ticker, analysis_date, final_action, position_size,
+                        entry_price, holding_days, return_pct, max_drawdown_pct,
+                        reward, outcome, notes, outcome_json, created_at, updated_at
+                    )
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    on conflict(run_id) do update set
+                        entry_price = excluded.entry_price,
+                        outcome = excluded.outcome,
+                        notes = excluded.notes,
+                        outcome_json = excluded.outcome_json,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        outcome_run_id,
+                        ticker,
+                        state["analysis_date"],
+                        str(order.get("side", "BUY")).upper(),
+                        "portfolio_target",
+                        order.get("fill_price"),
+                        0,
+                        None,
+                        None,
+                        None,
+                        "open",
+                        "Opened or updated from portfolio paper execution.",
+                        _json(outcome_json),
+                        now,
+                        now,
+                    ),
+                )
 
     def _initialize(self) -> None:
         with self._connect() as conn:
@@ -274,6 +362,32 @@ def build_decision_memory_event(run_id: str, state: dict[str, Any]) -> dict[str,
         ),
         "metadata": metadata,
         "decision": decision,
+    }
+
+
+def build_portfolio_memory_event(run_id: str, state: dict[str, Any]) -> dict[str, Any]:
+    plan = state["portfolio_plan"]
+    metadata = {
+        "run_id": run_id,
+        "analysis_date": state["analysis_date"],
+        "tickers": state.get("tickers", []),
+        "target_weights": plan.get("target_weights", {}),
+        "validation_result": state.get("validation_result"),
+        "execution_validation_result": state.get("execution_validation_result"),
+        "portfolio_risk_review": state.get("portfolio_risk_review"),
+    }
+    return {
+        "event_type": "portfolio_decision_event",
+        "scope_type": "portfolio",
+        "scope_id": "global",
+        "ticker": None,
+        "analysis_date": state["analysis_date"],
+        "summary": (
+            f"Portfolio {state['analysis_date']} {plan.get('decision', 'N/A')} "
+            f"tickers={','.join(state.get('tickers', []))}"
+        ),
+        "metadata": metadata,
+        "portfolio_plan": plan,
     }
 
 

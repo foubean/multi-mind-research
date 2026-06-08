@@ -29,6 +29,7 @@ class AppConfig:
     llm: "LLMConfig"
     paper_trading: "PaperTradingConfig"
     parameters: "ParameterConfig"
+    portfolio: "PortfolioConfig"
     trade_preferences: "TradePreferencesConfig"
 
 
@@ -67,6 +68,33 @@ class ParameterConfig:
 
 
 @dataclass(frozen=True)
+class PortfolioConstraintsConfig:
+    long_only: bool = True
+    allow_fractional: bool = True
+    max_tickers: int = 20
+    max_single_position_pct: float = 0.25
+    max_total_equity_pct: float = 0.85
+    cash_reserve_pct: float = 0.05
+    max_turnover_pct: float = 0.2
+    max_sector_exposure_pct: float = 0.45
+    max_theme_exposure_pct: float = 0.45
+    max_correlation_cluster_pct: float = 0.5
+    max_new_positions: int = 5
+    min_order_value: float = 100.0
+    cooldown_days_after_loss: int = 0
+    no_trade_symbols: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class PortfolioConfig:
+    max_revision_count: int = 2
+    single_ticker_failure_policy: str = "fail_fast"
+    default_research_turns: int = 2
+    default_risk_turns: int = 3
+    constraints: PortfolioConstraintsConfig = PortfolioConstraintsConfig()
+
+
+@dataclass(frozen=True)
 class TradePreferencesConfig:
     risk_profile: str = "balanced"
     trading_style: str = "staged"
@@ -87,6 +115,8 @@ def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> AppConfig:
     llm = _resolve_llm_config(data)
     paper_trading = data.get("paper_trading", {})
     parameters = data.get("parameters", {})
+    portfolio = data.get("portfolio", {})
+    portfolio_constraints = portfolio.get("constraints", {})
     trade_preferences = data.get("trade_preferences", {})
     return AppConfig(
         persistence=PersistenceConfig(
@@ -124,6 +154,30 @@ def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> AppConfig:
         ),
         parameters=ParameterConfig(
             scope=str(parameters.get("scope", "node")),
+        ),
+        portfolio=PortfolioConfig(
+            max_revision_count=int(portfolio.get("max_revision_count", 2)),
+            single_ticker_failure_policy=str(portfolio.get("single_ticker_failure_policy", "fail_fast")),
+            default_research_turns=int(portfolio.get("default_research_turns", 2)),
+            default_risk_turns=int(portfolio.get("default_risk_turns", 3)),
+            constraints=PortfolioConstraintsConfig(
+                long_only=_as_bool(portfolio_constraints.get("long_only"), True),
+                allow_fractional=_as_bool(portfolio_constraints.get("allow_fractional"), True),
+                max_tickers=int(portfolio_constraints.get("max_tickers", 20)),
+                max_single_position_pct=float(portfolio_constraints.get("max_single_position_pct", 0.25)),
+                max_total_equity_pct=float(portfolio_constraints.get("max_total_equity_pct", 0.85)),
+                cash_reserve_pct=float(portfolio_constraints.get("cash_reserve_pct", 0.05)),
+                max_turnover_pct=float(portfolio_constraints.get("max_turnover_pct", 0.2)),
+                max_sector_exposure_pct=float(portfolio_constraints.get("max_sector_exposure_pct", 0.45)),
+                max_theme_exposure_pct=float(portfolio_constraints.get("max_theme_exposure_pct", 0.45)),
+                max_correlation_cluster_pct=float(portfolio_constraints.get("max_correlation_cluster_pct", 0.5)),
+                max_new_positions=int(portfolio_constraints.get("max_new_positions", 5)),
+                min_order_value=float(portfolio_constraints.get("min_order_value", 100.0)),
+                cooldown_days_after_loss=int(portfolio_constraints.get("cooldown_days_after_loss", 0)),
+                no_trade_symbols=tuple(
+                    str(symbol).upper() for symbol in portfolio_constraints.get("no_trade_symbols", [])
+                ),
+            ),
         ),
         trade_preferences=TradePreferencesConfig(
             risk_profile=str(trade_preferences.get("risk_profile", "balanced")),
