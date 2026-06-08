@@ -126,6 +126,7 @@ class TradeProposal(TypedDict):
 
 
 class TradeAdvice(TradeProposal):
+    trade_intent: str
     expected_return_pct: float
     expected_risk_pct: float
     expected_holding_days: int

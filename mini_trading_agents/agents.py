@@ -338,6 +338,7 @@ def portfolio_manager(state: TradingState) -> TradingState:
     final_advice["position_size"] = position_size
     final_advice["confidence"] = confidence
     if not approved:
+        final_advice["trade_intent"] = "watch"
         final_advice["rationale"] = "Risk review rejected the proposal; keep exposure at none."
     updates: TradingState = {
         "risk_assessment": {
@@ -422,6 +423,7 @@ def _build_trade_advice(
     expected_risk = max_drawdown * (1.0 if action == "BUY" else 0.4)
     return {
         "action": action,
+        "trade_intent": _trade_intent(action),
         "position_size": position_size,
         "confidence": round(confidence, 3),
         "rationale": rationale,
@@ -454,6 +456,14 @@ def _entry_plan(trading_style: str, action: str) -> dict[str, Any]:
     if trading_style == "pullback":
         return {"method": "pullback_entry", "trigger": "Enter near MA20 or prior support if thesis remains intact.", "fraction": 0.4}
     return {"method": "staged_entry", "trigger": "Open partial exposure first, then wait for confirmation.", "fraction": 0.4}
+
+
+def _trade_intent(action: str) -> str:
+    if action == "BUY":
+        return "open"
+    if action == "SELL":
+        return "exit"
+    return "watch"
 
 
 def _add_position_plan(trading_style: str, action: str) -> dict[str, Any]:
@@ -651,7 +661,8 @@ def _maybe_llm_trader(state: TradingState) -> tuple[dict[str, Any] | None, dict[
                 "You are the trader in a multi-agent trading workflow. Convert the "
                 "research plan and trade preferences into structured single-ticker trade advice. "
                 "The advice is consumed by a future portfolio parent graph, so position_size is "
-                "a conviction bucket, not a final portfolio weight."
+                "a conviction bucket, not a final portfolio weight. Use trade_intent to separate "
+                "watch/wait/open/add/reduce/exit intent from the coarse BUY/HOLD/SELL action."
             ),
             payload={
                 "ticker": state["ticker"],
@@ -665,6 +676,7 @@ def _maybe_llm_trader(state: TradingState) -> tuple[dict[str, Any] | None, dict[
                 "additionalProperties": False,
                 "required": [
                     "action",
+                    "trade_intent",
                     "position_size",
                     "confidence",
                     "rationale",
@@ -681,6 +693,7 @@ def _maybe_llm_trader(state: TradingState) -> tuple[dict[str, Any] | None, dict[
                 ],
                 "properties": {
                     "action": {"type": "string", "enum": ["BUY", "HOLD", "SELL"]},
+                    "trade_intent": _trade_intent_schema(),
                     "position_size": {"type": "string", "enum": ["none", "small", "medium", "large"]},
                     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                     "rationale": {"type": "string"},
@@ -755,6 +768,7 @@ def _maybe_llm_portfolio_manager(state: TradingState) -> tuple[dict[str, Any] | 
                         "additionalProperties": False,
                         "required": [
                             "action",
+                            "trade_intent",
                             "position_size",
                             "confidence",
                             "rationale",
@@ -771,6 +785,7 @@ def _maybe_llm_portfolio_manager(state: TradingState) -> tuple[dict[str, Any] | 
                         ],
                         "properties": {
                             "action": {"type": "string", "enum": ["BUY", "HOLD", "SELL"]},
+                            "trade_intent": _trade_intent_schema(),
                             "position_size": {"type": "string", "enum": ["none", "small", "medium", "large"]},
                             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                             "rationale": {"type": "string"},
@@ -832,6 +847,10 @@ def _plan_schema() -> dict[str, Any]:
             "fraction": {"type": "number", "minimum": 0, "maximum": 1},
         },
     }
+
+
+def _trade_intent_schema() -> dict[str, Any]:
+    return {"type": "string", "enum": ["open", "add", "reduce", "exit", "watch", "wait"]}
 
 
 def _llm_trace(

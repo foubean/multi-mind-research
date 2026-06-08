@@ -276,6 +276,7 @@ def _print_state(
     trade_advice = state.get("trade_advice")
     if trade_advice:
         print("Trade advice:")
+        print(f"- intent: {trade_advice.get('trade_intent', 'N/A')}")
         print(f"- risk profile: {trade_advice['risk_profile']}")
         print(f"- trading style: {trade_advice['trading_style']}")
         print(f"- expected return: {trade_advice['expected_return_pct']}")

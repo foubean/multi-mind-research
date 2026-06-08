@@ -231,6 +231,7 @@ not change the current workflow yet.
 The trader node now emits `trade_advice` with:
 
 - action and conviction bucket: `BUY/HOLD/SELL` plus `none/small/medium/large`.
+- trade intent: `open/add/reduce/exit/watch/wait`. `HOLD + watch` is the current observation/standby case.
 - expected return, expected risk, and expected holding days.
 - risk profile and trading style.
 - entry, add, reduce, and stop-loss plans.

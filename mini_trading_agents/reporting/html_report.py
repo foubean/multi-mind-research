@@ -176,6 +176,7 @@ def _trade_advice_section(state: dict[str, Any]) -> str:
         ])}
         {_metric_panel("Expectation", [
             ("Action", advice.get("action")),
+            ("Intent", advice.get("trade_intent", "N/A")),
             ("Confidence", _pct(advice.get("confidence"))),
             ("Expected Return", _pct(advice.get("expected_return_pct"))),
             ("Expected Risk", _pct(advice.get("expected_risk_pct"))),
