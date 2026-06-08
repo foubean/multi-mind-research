@@ -12,10 +12,28 @@ Future change entries should include `Todo: <ID>` when they primarily belong to 
 
 Todo: `PAPER-TRADING`
 
+- Added Alpaca market data adapter for market bars and `--market-provider alpaca` support in single-ticker and portfolio runners.
+- Added config-driven run/data/reporting settings so ticker lists, analysis date, provider choices, logs, reports, and portfolio paper execution can be controlled from `config.toml` with CLI arguments used only as overrides.
+- Simplified runtime config: LLM is always enabled with mandatory startup check, removed user-facing temperature/runtime toggles, moved paper execution control to `[paper_trading].enable`, and added explicit `persistence.snapshot_path` for custom workflow snapshots.
+- Moved detailed portfolio hard constraints out of `config.toml` into `config/portfolio_constraints.default.json`, referenced by `[config_files].constraints_path`.
+- Moved trade preference/mandate details out of `config.toml` into `config/trade_preferences.default.json`, referenced by top-level `trade_preferences_path`.
+- Added portfolio ticker task scheduling with `[run].max_parallel_tickers`, so the parent graph consumes a ticker task queue in bounded parallel batches instead of fanning out every ticker at once.
+- Split storage into explicit `SnapshotStore` and `BusinessStore` classes so custom full-state snapshots use `persistence.snapshot_path` only, while `persistence.storage_path` keeps business records without creating `workflow_snapshots`.
+- Separated secrets from runtime config with provider-specific files: `.env.openai` for OpenAI-compatible LLM credentials and `.env.alpaca` for Alpaca credentials; removed `[paper_trading.alpaca]` from config examples and kept only non-sensitive runtime settings in `config.toml`.
+- Split `[logging]` from `[reporting]` so JSONL audit log settings use `[logging].enabled/log_dir` and HTML report output uses `[reporting].report_dir`.
+- Simplified `[run]` by removing `ticker` and `pretty`; both runners use `[run].tickers`, single-ticker mode takes the first ticker, and blank `analysis_date` resolves to today's date.
+- Removed duplicate `[portfolio].default_research_turns/default_risk_turns`; portfolio child ticker graphs now use `[run].research_turns/risk_turns`.
+- Added a README configuration reference table covering `config.toml`, provider-specific env files, portfolio constraint JSON, and trade preference JSON fields with types, defaults, and allowed values.
+- Added explicit Single-node and Graph runtime modes with `run_single_node.py`/`single_node.toml` and `run_graph.py`/`graph.toml` examples.
+- Recreated root entry points as `run.py` for single trading-node mode and `run_graph.py` for multi-ticker graph mode, each with its own TOML example.
+- Consolidated both runtime modes back to one shared `config.toml`: `run.py` and `run_graph.py` now default to the same local config, and the separate single-node/graph TOML examples were removed.
+- Changed provider-specific secret loading so `.env.openai` and `.env.alpaca` override stale process environment variables inside the current run, making local project credentials authoritative during connection checks and workflow execution.
+- Fixed single-ticker HTML `Trade Advice` rendering by replacing narrow metric columns with wider overview and trade-plan cards, so long entry/add/reduce/stop triggers render as readable paragraphs instead of oversized wrapped text.
+- Removed local paper trading execution: deleted `LocalPaperAdapter`, removed local provider wiring/config fields, switched paper trading defaults to Alpaca online paper trading, and changed portfolio account context loading to read Alpaca Paper account/positions instead of local SQLite tables.
 - Added portfolio-level execution adapter support via `apply_portfolio_plan`.
 - Implemented `LocalPaperAdapter.apply_portfolio_plan()` for multi-ticker local paper orders, fills, position updates, and portfolio snapshots.
 - Implemented Alpaca portfolio paper order submission with idempotent client order ids and a no-order account-read validation path.
-- Added explicit `--execute-paper` to `run_portfolio_demo.py`; analysis runs do not submit paper orders unless this flag is present.
+- Paper order submission is controlled by `[paper_trading].enable`; analysis runs do not submit paper orders when it is false.
 - Added pre-execution guards so rejected or invalid portfolio plans cannot be submitted to paper adapters.
 - Wrote portfolio paper execution results into `paper_trading_result` and the HTML report.
 - Added `trade_outcomes` open-outcome writes for portfolio paper executions, including portfolio run id, order id, fill id, target weight, actual weight, and paper order metadata.
@@ -61,7 +79,7 @@ Todo: `LG-WORKFLOW`
 - Added `paper_trading_result` to `TradingState`.
 - Added console and HTML report output for local paper trading results.
 - Added trade preferences config for single-ticker advice generation.
-- Added `parameters.scope` config with `node` as the current behavior and `global` as a reserved placeholder.
+- Removed the obsolete `parameters.scope` placeholder from runtime configuration.
 - Added `trade_intent` to single-ticker trade advice so coarse `BUY/HOLD/SELL` actions can express finer intent such as `watch`, `wait`, `open`, `add`, `reduce`, or `exit`.
 - Clarified and normalized expected return/risk as fractional, non-annualized values for `expected_holding_days`, preventing LLM outputs like `10` from rendering as `1000%`.
 - Expanded trader output into structured `trade_advice` with expected return, expected risk, holding horizon, entry/add/reduce/stop plans, and invalidation conditions.
@@ -322,8 +340,7 @@ Todo: `LG-WORKFLOW`
 ## 2026-06-04 - Second Update: LangGraph Workflow
 
 - Changed the active project workflow from the custom sequential runner to LangGraph.
-- Added `mini_trading_agents/langgraph_workflow.py` as the main workflow builder.
-- Changed `mini_trading_agents/workflow.py` into a compatibility import layer for the LangGraph workflow.
+- Renamed the main LangGraph workflow builder to `mini_trading_agents/workflow.py` and removed the old compatibility import layer.
 - Removed the old custom sequential runner file `mini_trading_agents/graph.py`.
 - Cleaned `mini_trading_agents/logging.py` so it only keeps the streaming JSONL logger.
 - Analyst stage now starts 4 analyst nodes in parallel:

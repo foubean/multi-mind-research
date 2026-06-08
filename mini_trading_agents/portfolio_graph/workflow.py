@@ -15,6 +15,7 @@ def build_portfolio_workflow(*, checkpointer=None, store=None):
     graph.add_node("load_account_context", _with_trace("load_account_context", nodes.load_account_context))
     graph.add_node("preflight_validate", _with_trace("preflight_validate", nodes.preflight_validate_node))
     graph.add_node("prepare_ticker_tasks", _with_trace("prepare_ticker_tasks", nodes.prepare_ticker_tasks))
+    graph.add_node("dispatch_ticker_batch", _with_trace("dispatch_ticker_batch", nodes.dispatch_ticker_batch))
     graph.add_node("run_single_ticker_node", _with_trace("run_single_ticker_node", nodes.run_single_ticker_node))
     graph.add_node("collect_trade_advices", _with_trace("collect_trade_advices", nodes.collect_trade_advices))
     graph.add_node("build_portfolio_context", _with_trace("build_portfolio_context", nodes.build_portfolio_context))
@@ -37,8 +38,13 @@ def build_portfolio_workflow(*, checkpointer=None, store=None):
         _route_preflight,
         {"continue": "prepare_ticker_tasks", "reject": "rejected_portfolio_plan"},
     )
-    graph.add_conditional_edges("prepare_ticker_tasks", _fanout_ticker_tasks, ["run_single_ticker_node"])
-    graph.add_edge("run_single_ticker_node", "collect_trade_advices")
+    graph.add_edge("prepare_ticker_tasks", "dispatch_ticker_batch")
+    graph.add_conditional_edges(
+        "dispatch_ticker_batch",
+        _route_ticker_dispatch,
+        ["run_single_ticker_node", "collect_trade_advices"],
+    )
+    graph.add_edge("run_single_ticker_node", "dispatch_ticker_batch")
     graph.add_edge("collect_trade_advices", "build_portfolio_context")
     graph.add_edge("build_portfolio_context", "portfolio_research_summarizer")
     graph.add_edge("portfolio_research_summarizer", "portfolio_risk_reviewer")
@@ -70,6 +76,7 @@ def initial_portfolio_state(
     tickers: list[str],
     analysis_date: str,
     data_providers: dict[str, str],
+    data_provider_config: dict[str, Any],
     app_config: Any,
 ) -> GlobalPortfolioState:
     return {
@@ -77,14 +84,15 @@ def initial_portfolio_state(
         "analysis_date": analysis_date,
         "tickers": [ticker.upper() for ticker in tickers],
         "data_providers": data_providers,
+        "data_provider_config": data_provider_config,
         "llm_config": app_config.llm.__dict__,
-        "runtime_parameters": {"scope": "global"},
         "trade_preferences": app_config.trade_preferences.__dict__,
         "portfolio_config": {
             "max_revision_count": app_config.portfolio.max_revision_count,
             "single_ticker_failure_policy": app_config.portfolio.single_ticker_failure_policy,
-            "default_research_turns": app_config.portfolio.default_research_turns,
-            "default_risk_turns": app_config.portfolio.default_risk_turns,
+            "research_turns": app_config.run.research_turns,
+            "risk_turns": app_config.run.risk_turns,
+            "max_parallel_tickers": app_config.run.max_parallel_tickers,
             "paper_trading": app_config.paper_trading.__dict__,
             "storage_path": app_config.persistence.storage_path,
         },
@@ -103,11 +111,18 @@ def _route_preflight(state: GlobalPortfolioState) -> Literal["continue", "reject
 def _fanout_ticker_tasks(state: GlobalPortfolioState) -> list[Send]:
     shared = {
         "llm_config": state["llm_config"],
+        "data_provider_config": state.get("data_provider_config", {}),
         "portfolio_config": state["portfolio_config"],
         "ticker_results": [],
         "trace": [],
     }
-    return [Send("run_single_ticker_node", {**shared, "ticker_task": task}) for task in state.get("ticker_tasks", [])]
+    return [Send("run_single_ticker_node", {**shared, "ticker_task": task}) for task in state.get("active_ticker_tasks", [])]
+
+
+def _route_ticker_dispatch(state: GlobalPortfolioState):
+    if state.get("active_ticker_tasks"):
+        return _fanout_ticker_tasks(state)
+    return "collect_trade_advices"
 
 
 def _route_validation(state: GlobalPortfolioState) -> Literal["execute", "revise", "reject"]:

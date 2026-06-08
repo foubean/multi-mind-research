@@ -43,7 +43,6 @@ class TickerTask(TypedDict):
     analysis_date: str
     data_providers: dict[str, str]
     trade_preferences: dict[str, Any]
-    runtime_parameters: dict[str, Any]
     research_turns: int
     risk_turns: int
 
@@ -87,16 +86,19 @@ class GlobalPortfolioState(TypedDict):
     analysis_date: str
     tickers: list[str]
     data_providers: dict[str, str]
+    data_provider_config: dict[str, Any]
     llm_config: dict[str, Any]
-    runtime_parameters: dict[str, Any]
     trade_preferences: dict[str, Any]
     portfolio_config: dict[str, Any]
     portfolio_constraints: PortfolioConstraints
     account_context: NotRequired[AccountContext]
     preflight_result: NotRequired[ValidationResult]
     ticker_tasks: NotRequired[list[TickerTask]]
+    ticker_task_queue: NotRequired[list[TickerTask]]
+    active_ticker_tasks: NotRequired[list[TickerTask]]
     ticker_task: NotRequired[TickerTask]
     ticker_results: Annotated[list[TickerResult], operator.add]
+    dispatch_round: NotRequired[int]
     trade_advices: NotRequired[dict[str, dict[str, Any]]]
     cross_section: NotRequired[dict[str, Any]]
     portfolio_context: NotRequired[dict[str, Any]]

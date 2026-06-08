@@ -1,3 +1,7 @@
+[config_files]
+trade_preferences_path = "config/trade_preferences.default.json"
+constraints_path = "config/portfolio_constraints.default.json"
+
 [persistence]
 # LangGraph native checkpoint persistence. This stores graph execution metadata
 # keyed by thread_id, including channel versions, pending sends, and next tasks.
@@ -6,75 +10,49 @@ checkpoint_path = "storage/langgraph_checkpoints.sqlite"
 
 # Custom full-state snapshots written after streamed `values` chunks.
 snapshot_enabled = true
+snapshot_path = "storage/workflow_snapshots.sqlite"
 
 # Long-term decision memory written once after the portfolio decision finishes.
 decision_memory_enabled = true
 memory_store_path = "storage/langgraph_memory.sqlite"
 
-# SQLite database used by custom snapshots and decision memory.
+# SQLite database used by business audit tables, decision memory copies, trade
+# outcomes, and paper execution records.
 storage_path = "storage/trading_agents.sqlite"
 
 [llm]
-# Disabled in the example so the demo remains runnable without an API key.
-enabled = false
-# If enabled and LLM mode is on, run a small startup check before graph work begins.
-runtime_check_enabled = true
 provider = "openai"
 model = "gpt-5.5"
-# Prefer environment variables for real keys. Local config.toml may also use
-# api_key = "sk-..." because config.toml is ignored by git.
-api_key_env = "OPENAI_API_KEY"
-base_url = ""
-temperature = 0.2
 
 [paper_trading]
-# Disabled by default so the research demo can run without changing account state.
-enabled = false
-provider = "local"
-account_id = "demo"
-initial_cash = 100000
-base_currency = "USD"
-fee_rate = 0.0005
-slippage_bps = 5
-allow_fractional = true
+enable = false
+provider = "alpaca"
 
-[paper_trading.alpaca]
-api_key_env = "ALPACA_API_KEY"
-api_secret_env = "ALPACA_API_SECRET"
-base_url = "https://paper-api.alpaca.markets"
+[run]
+# Single-ticker runner uses the first ticker; portfolio runner uses all tickers.
+tickers = ["NVDA", "AAPL", "MSFT"]
+# Empty string defaults to today's local date. Use YYYY-MM-DD to pin a date.
+analysis_date = ""
+research_turns = 2
+risk_turns = 3
+max_parallel_tickers = 5
 
-[parameters]
-# node = current single-ticker/node-level parameters.
-# global = reserved placeholder for future parent-graph/global parameters.
-scope = "node"
+[data_providers]
+# default applies to sentiment/news/fundamentals unless a category overrides it.
+default = "yahoo"
+# Market can use sample, yahoo, or alpaca.
+market = "alpaca"
+sentiment = "yahoo"
+news = "yahoo"
+fundamentals = "yahoo"
+
+[logging]
+enabled = true
+log_dir = "logs"
+
+[reporting]
+report_dir = "reports"
 
 [portfolio]
 max_revision_count = 2
 single_ticker_failure_policy = "fail_fast" # fail_fast | skip_failed
-default_research_turns = 2
-default_risk_turns = 3
-
-[portfolio.constraints]
-long_only = true
-allow_fractional = true
-max_tickers = 20
-max_single_position_pct = 0.25
-max_total_equity_pct = 0.85
-cash_reserve_pct = 0.05
-max_turnover_pct = 0.2
-max_sector_exposure_pct = 0.45
-max_theme_exposure_pct = 0.45
-max_correlation_cluster_pct = 0.5
-max_new_positions = 5
-min_order_value = 100
-cooldown_days_after_loss = 0
-no_trade_symbols = []
-
-[trade_preferences]
-# These preferences shape single-ticker trade advice. Portfolio-level target
-# weights should still be decided by a future parent portfolio graph.
-risk_profile = "balanced"      # conservative | balanced | aggressive
-trading_style = "staged"       # staged | left_side | right_side | breakout | pullback
-target_return_pct = 0.12
-max_drawdown_pct = 0.08
-expected_holding_days = 20

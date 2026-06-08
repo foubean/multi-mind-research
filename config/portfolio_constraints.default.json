@@ -1,0 +1,16 @@
+{
+  "long_only": true,
+  "allow_fractional": true,
+  "max_tickers": 20,
+  "max_single_position_pct": 0.25,
+  "max_total_equity_pct": 0.85,
+  "cash_reserve_pct": 0.05,
+  "max_turnover_pct": 0.2,
+  "max_sector_exposure_pct": 0.45,
+  "max_theme_exposure_pct": 0.45,
+  "max_correlation_cluster_pct": 0.5,
+  "max_new_positions": 5,
+  "min_order_value": 100,
+  "cooldown_days_after_loss": 0,
+  "no_trade_symbols": []
+}

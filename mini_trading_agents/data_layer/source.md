@@ -381,8 +381,8 @@ fundamentals/yahoo.py
 运行时可以用 `--data-provider` 一键设置四类数据来源，也可以用分类参数分别指定：
 
 ```powershell
-python .\run_demo.py --data-provider yahoo
-python .\run_demo.py --market-provider yahoo --sentiment-provider yahoo --news-provider sample --fundamentals-provider yahoo
+python .\run.py --data-provider yahoo
+python .\run.py --market-provider yahoo --sentiment-provider yahoo --news-provider sample --fundamentals-provider yahoo
 ```
 
 长期更好的结构是让不同类别选择不同最佳来源：

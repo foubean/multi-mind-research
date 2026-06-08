@@ -1,0 +1,7 @@
+{
+  "risk_profile": "balanced",
+  "trading_style": "staged",
+  "target_return_pct": 0.12,
+  "max_drawdown_pct": 0.08,
+  "expected_holding_days": 20
+}

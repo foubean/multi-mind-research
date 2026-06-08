@@ -9,9 +9,6 @@ _ADAPTER_CACHE: dict[tuple[tuple[str, Any], ...], OpenAIAdapter] = {}
 
 
 def get_llm_adapter(llm_config: dict[str, Any]):
-    if not llm_config.get("enabled"):
-        raise RuntimeError("LLM is disabled.")
-
     provider = str(llm_config.get("provider", "openai")).lower()
     cache_key = tuple(sorted(llm_config.items()))
     if cache_key in _ADAPTER_CACHE:

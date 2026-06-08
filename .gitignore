@@ -1,7 +1,11 @@
 __pycache__/
 *.py[cod]
 logs/
+.history/
 .cache/
 /storage/
 /config.toml
+/.env
+/.env.openai
+/.env.alpaca
 /reports/

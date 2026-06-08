@@ -1,54 +1,10 @@
-# 总待办事项清单
+﻿# 鎬诲緟鍔炰簨椤规竻鍗?
+## [LG-WORKFLOW] LangGraph 娴佺▼澧炲己
 
-## [LG-WORKFLOW] LangGraph 流程增强
+- [ ] 灏?`global-portfolio-graph` 瀹屽杽涓烘寮忕粍鍚堢埗鍥撅紝鏄庣‘鐖跺浘涓?`single-ticker-node` 瀛愬浘鐨勬帴鍙ｈ竟鐣屻€?- [x] 澧炲己璐︽埛涓庢寔浠撹鍙栵細浠庢湰鍦版ā鎷熺洏鎴栧埜鍟嗘ā鎷熺洏璇诲彇鐪熷疄璐︽埛鐘舵€侊紝鑰屼笉鏄彧浣跨敤鍒濆鐜伴噾銆?- [x] 鍦ㄧ粍鍚堝浘涓姞鍏?`load_account_context` 鐨勭湡瀹炲疄鐜帮紝杈撳嚭 cash銆乪quity銆乸ositions銆乸ortfolio_history銆?- [x] 澧炲己 `preflight_validate`锛氭彁鍓嶆鏌ヨ处鎴峰彲鐢ㄦ€с€乼icker 鍚堟硶鎬с€佹暟鎹簮閰嶇疆銆丩LM 鍙敤鎬с€佺害鏉熼厤缃槸鍚﹀悎娉曘€?- [x] 澧炲己 `prepare_ticker_tasks`锛氭敮鎸佸叏灞€鍙傛暟鏄犲皠鍒板崟浣撹妭鐐癸紝骞跺厑璁?ticker 绾у埆瑕嗙洊銆?- [x] 瀹屽杽澶?ticker 骞惰鎵ц绛栫暐锛氭敮鎸?`fail_fast`銆乣skip_failed`銆佸け璐ュ師鍥犱繚鐣欏拰灞€閮ㄧ粨鏋滅户缁眹鎬汇€?- [x] 澧炲己 `collect_trade_advices`锛氱敓鎴愭í鎴潰瀵规瘮锛屽寘鎷?BUY/HOLD/SELL 鍒嗗竷銆乧onfidence 鎺掑悕銆乺isk/return 鎺掑悕銆?- [x] 澧炲己 `portfolio_context_builder`锛氬姞鍏ュ凡鏈夋寔浠撱€佺幇閲戞瘮渚嬨€佸巻鍙茬粨鏋溿€佽繎鏈熷喅绛栬蹇嗐€佺粍鍚堢害鏉熴€?- [x] 澧炲己 `portfolio_research_summarizer`锛氳瘑鍒満浼氭帓鍚嶃€佹浛浠ｅ叧绯汇€佷富棰樿仛绫汇€侀噸澶嶉€昏緫鍜屽崟浣撳缓璁啿绐併€?- [ ] 澧炲己 `portfolio_risk_reviewer`锛氳瘑鍒涓氶泦涓害銆佷富棰橀泦涓害銆佺浉鍏虫€с€佹尝鍔ㄧ巼銆佷及鍊奸闄╁彔鍔犲拰宸叉湁鎸佷粨椋庨櫓銆?- [x] 寮哄寲 LLM portfolio manager prompt锛氳姹傝В閲婁拱鍏ャ€佷笉涔般€佸噺浠撱€佷繚鐣欑幇閲戝拰鎷掔粷鍊欓€夋爣鐨勭殑鍘熷洜銆?- [x] 灏?`validation_result` 鍥炵亴缁?LLM portfolio manager锛岀敤浜庝慨姝ｈ繚鍙嶇害鏉熺殑缁勫悎璁″垝銆?- [x] 灏?`validate_portfolio_plan` 鎷嗘垚 preflight銆乸ortfolio plan銆乪xecution plan 涓夊眰鏍￠獙銆?- [x] 澧炲姞鏇村纭害鏉燂細琛屼笟涓婇檺銆佷富棰樹笂闄愩€佺浉鍏虫€ч泦缇や笂闄愩€佹渶澶ф柊澧炰粨浣嶆暟銆佹渶灏忚鍗曢噾棰濄€佹崲鎵嬬巼涓婇檺銆佷簭鎹熷悗鍐峰嵈鏈熴€佺涔版爣鐨勩€?- [ ] 瀹屽杽淇鍥炶矾锛氬尯鍒?repairable銆乫atal銆亀arning锛屽苟闄愬埗鏈€澶т慨姝ｆ鏁般€?- [x] 澧炲己缁勫悎 HTML 鎶ュ憡锛氬睍绀哄崟浣撹妭鐐归捇鍙栥€佺粍鍚堟潈閲嶃€佹嫆缁濆€欓€夈€侀闄╂毚闇层€佺害鏉熸鏌ャ€佽鍗曡鍒掑拰鍘嗗彶瀵规瘮銆?- [x] 缁欏叏灞€缁勫悎鍥惧姞鍏?checkpoint銆乻napshot銆乨ecision memory/store 鐨勬寮忔寔涔呭寲鏀寔銆?- [x] 琛ュ厖 README 鍜?change.md锛屾槑纭粍鍚堝浘涓?LLM 鍐崇瓥灞傚拰瑙勫垯绾︽潫灞傜殑鑱岃矗杈圭晫銆?
+## [PAPER-TRADING] 妯℃嫙浜ゆ槗寮哄寲
 
-- [ ] 将 `global-portfolio-graph` 完善为正式组合父图，明确父图与 `single-ticker-node` 子图的接口边界。
-- [x] 增强账户与持仓读取：从本地模拟盘或券商模拟盘读取真实账户状态，而不是只使用初始现金。
-- [x] 在组合图中加入 `load_account_context` 的真实实现，输出 cash、equity、positions、portfolio_history。
-- [x] 增强 `preflight_validate`：提前检查账户可用性、ticker 合法性、数据源配置、LLM 可用性、约束配置是否合法。
-- [x] 增强 `prepare_ticker_tasks`：支持全局参数映射到单体节点，并允许 ticker 级别覆盖。
-- [x] 完善多 ticker 并行执行策略：支持 `fail_fast`、`skip_failed`、失败原因保留和局部结果继续汇总。
-- [x] 增强 `collect_trade_advices`：生成横截面对比，包括 BUY/HOLD/SELL 分布、confidence 排名、risk/return 排名。
-- [x] 增强 `portfolio_context_builder`：加入已有持仓、现金比例、历史结果、近期决策记忆、组合约束。
-- [x] 增强 `portfolio_research_summarizer`：识别机会排名、替代关系、主题聚类、重复逻辑和单体建议冲突。
-- [ ] 增强 `portfolio_risk_reviewer`：识别行业集中度、主题集中度、相关性、波动率、估值风险叠加和已有持仓风险。
-- [x] 强化 LLM portfolio manager prompt：要求解释买入、不买、减仓、保留现金和拒绝候选标的的原因。
-- [x] 将 `validation_result` 回灌给 LLM portfolio manager，用于修正违反约束的组合计划。
-- [x] 将 `validate_portfolio_plan` 拆成 preflight、portfolio plan、execution plan 三层校验。
-- [x] 增加更多硬约束：行业上限、主题上限、相关性集群上限、最大新增仓位数、最小订单金额、换手率上限、亏损后冷却期、禁买标的。
-- [ ] 完善修正回路：区分 repairable、fatal、warning，并限制最大修正次数。
-- [x] 增强组合 HTML 报告：展示单体节点钻取、组合权重、拒绝候选、风险暴露、约束检查、订单计划和历史对比。
-- [x] 给全局组合图加入 checkpoint、snapshot、decision memory/store 的正式持久化支持。
-- [x] 补充 README 和 change.md，明确组合图中 LLM 决策层和规则约束层的职责边界。
+- [x] 瀹屽杽 `AlpacaPaperAdapter.apply_portfolio_plan()`锛屾敮鎸佺粍鍚堢洰鏍囨潈閲嶅埌鏈湴妯℃嫙璁㈠崟鐨勮浆鎹€?- [x] 瀹屽杽 `AlpacaPaperAdapter.submit_portfolio_orders()`锛屾敮鎸佺粍鍚堢骇妯℃嫙鐩樿鍗曟彁浜ゃ€?- [x] 灏?execution plan 浠庣洰鏍囨潈閲嶆墿灞曚负鐪熷疄璁㈠崟璁″垝锛歴ide銆乹uantity銆乶otional銆乷rder_type銆乴imit_price銆乼ime_in_force銆乺eason銆乺isk_note銆?- [x] 鍦ㄦā鎷熺洏鎵ц鍓嶅鍔?execution plan validation锛氭渶灏忚鍗曢噾棰濄€佺幇閲戜笉瓒炽€佹槸鍚﹀厑璁稿皬鏁拌偂銆佹槸鍚﹀厑璁稿崠鍑恒€佹槸鍚﹁秴杩囨崲鎵嬮檺鍒躲€?- [ ] 寤虹珛姣忔棩/姣忚疆 mark-to-market 鑴氭湰锛屼緥濡?`run_paper_mark_to_market.py`銆?- [ ] mark-to-market 璇诲彇褰撳墠鎸佷粨銆佽幏鍙栨渶鏂颁环鏍笺€侀噸绠?market_value銆乪quity銆乽nrealized_pnl锛屽苟鍐欏叆 `portfolio_snapshots`銆?- [x] 瀹屽杽 `trade_outcomes` 琛ㄥ啓鍏ラ€昏緫锛岃€屼笉浠呬粎鏄缓琛ㄣ€?- [x] 涔板叆鎴栧紑浠撴椂鍐欏叆 open outcome锛岃褰?run_id銆乼icker銆乪ntry_price銆乹uantity銆乼arget_weight銆乤ctual_weight銆?- [ ] 鎸佷粨鏈熼棿鏇存柊 open outcome锛岃褰?unrealized_return_pct銆乵ax_drawdown_pct銆乵ax_runup_pct銆乭olding_days銆?- [ ] 骞充粨鎴栧噺浠撴椂鍐欏叆 closed outcome锛岃褰?realized_pnl銆乺ealized_return_pct銆乧losed_at銆乪xit_price銆乷utcome_status銆?- [x] 涓虹粍鍚堝眰澧炲姞 portfolio_run_id銆乷rder_id銆乫ill_id銆乼arget_weight銆乤ctual_weight 绛?outcome 瀛楁鍏宠仈銆?- [ ] 寤虹珛 `decision_reviewer_agent`锛屽湪 closed outcome 鍚庡鐩樺師濮嬪缓璁€佺粍鍚堣鍒掋€佸疄闄呰矾寰勫拰椋庨櫓鎺у埗鏄惁鏈夋晥銆?- [ ] 灏嗗鐩樼粨鏋滃啓鍏?LangGraph Store / decision memory锛屾寜 ticker 鍜?portfolio 涓ょ namespace 淇濆瓨銆?- [ ] 涓嬩竴杞粍鍚堝浘杩愯鍓嶅姞杞?recent trade outcomes 鍜?lessons锛屼綔涓?LLM portfolio manager 鐨勪笂涓嬫枃銆?- [ ] 鍖哄垎鈥滅粡楠岃蹇嗗弽棣堥棴鐜€濆拰鈥滃己鍖栧涔犫€濓細褰撳墠闃舵鍏堝仛缁撴瀯鍖栫粨鏋滆蹇嗭紝涓嶈缁冩ā鍨嬪弬鏁般€?- [ ] 鍚庣画濡傛灉闇€瑕佸己鍖栧涔狅紝鍐嶅熀浜庤冻澶熷鐨勬ā鎷熺洏缁撴灉璁捐 reward銆乸olicy銆乻tate/action space銆?- [ ] 鍦ㄦ姤鍛婁腑灞曠ず妯℃嫙鐩樻椂闂村簭鍒楋細缁勫悎鍑€鍊笺€佺幇閲戞瘮渚嬨€佹寔浠撴潈閲嶃€佸崟绗斾氦鏄撶粨鏋溿€佹渶澶у洖鎾ゅ拰鏀剁泭鏇茬嚎銆?- [ ] 鏀寔闀挎湡鑷姩鍖栬繍琛岋細瀹氭椂鍒嗘瀽銆佹ā鎷熶笅鍗曘€佹敹鐩?mark-to-market銆佸鐩樺啓 memory銆?
+## [META-ROADMAP] 鍘熷鏂瑰悜淇濈暀
 
-## [PAPER-TRADING] 模拟交易强化
-
-- [x] 完善 `LocalPaperAdapter.apply_portfolio_plan()`，支持组合目标权重到本地模拟订单的转换。
-- [x] 完善 `AlpacaPaperAdapter.submit_portfolio_orders()`，支持组合级模拟盘订单提交。
-- [x] 将 execution plan 从目标权重扩展为真实订单计划：side、quantity、notional、order_type、limit_price、time_in_force、reason、risk_note。
-- [x] 在模拟盘执行前增加 execution plan validation：最小订单金额、现金不足、是否允许小数股、是否允许卖出、是否超过换手限制。
-- [ ] 建立每日/每轮 mark-to-market 脚本，例如 `run_paper_mark_to_market.py`。
-- [ ] mark-to-market 读取当前持仓、获取最新价格、重算 market_value、equity、unrealized_pnl，并写入 `portfolio_snapshots`。
-- [x] 完善 `trade_outcomes` 表写入逻辑，而不仅仅是建表。
-- [x] 买入或开仓时写入 open outcome，记录 run_id、ticker、entry_price、quantity、target_weight、actual_weight。
-- [ ] 持仓期间更新 open outcome，记录 unrealized_return_pct、max_drawdown_pct、max_runup_pct、holding_days。
-- [ ] 平仓或减仓时写入 closed outcome，记录 realized_pnl、realized_return_pct、closed_at、exit_price、outcome_status。
-- [x] 为组合层增加 portfolio_run_id、order_id、fill_id、target_weight、actual_weight 等 outcome 字段关联。
-- [ ] 建立 `decision_reviewer_agent`，在 closed outcome 后复盘原始建议、组合计划、实际路径和风险控制是否有效。
-- [ ] 将复盘结果写入 LangGraph Store / decision memory，按 ticker 和 portfolio 两种 namespace 保存。
-- [ ] 下一轮组合图运行前加载 recent trade outcomes 和 lessons，作为 LLM portfolio manager 的上下文。
-- [ ] 区分“经验记忆反馈闭环”和“强化学习”：当前阶段先做结构化结果记忆，不训练模型参数。
-- [ ] 后续如果需要强化学习，再基于足够多的模拟盘结果设计 reward、policy、state/action space。
-- [ ] 在报告中展示模拟盘时间序列：组合净值、现金比例、持仓权重、单笔交易结果、最大回撤和收益曲线。
-- [ ] 支持长期自动化运行：定时分析、模拟下单、收盘 mark-to-market、复盘写 memory。
-
-## [META-ROADMAP] 原始方向保留
-
-- [ ] 实现工作流重新编排和增加 agent。
-- [ ] 提高各 agent 的定制化能力。
-- [ ] 评估分布式执行必要性，先保持本地/单进程可验证实现。
-- [ ] 支持模拟环境交易和策略调整。
-- [ ] 增强可回溯、审计和数据血缘。
-- [ ] 整理部署方案和后续优化方案。
-- [ ] 补充 PRD 和阶段性进度计划。
-- [ ] 强化审计能力。
+- [ ] 瀹炵幇宸ヤ綔娴侀噸鏂扮紪鎺掑拰澧炲姞 agent銆?- [ ] 鎻愰珮鍚?agent 鐨勫畾鍒跺寲鑳藉姏銆?- [ ] 璇勪及鍒嗗竷寮忔墽琛屽繀瑕佹€э紝鍏堜繚鎸佹湰鍦?鍗曡繘绋嬪彲楠岃瘉瀹炵幇銆?- [ ] 鏀寔妯℃嫙鐜浜ゆ槗鍜岀瓥鐣ヨ皟鏁淬€?- [ ] 澧炲己鍙洖婧€佸璁″拰鏁版嵁琛€缂樸€?- [ ] 鏁寸悊閮ㄧ讲鏂规鍜屽悗缁紭鍖栨柟妗堛€?- [ ] 琛ュ厖 PRD 鍜岄樁娈垫€ц繘搴﹁鍒掋€?- [ ] 寮哄寲瀹¤鑳藉姏銆?

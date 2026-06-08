@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-import sqlite3
-from pathlib import Path
+import os
 from typing import Any
 
-from mini_trading_agents.langgraph_workflow import build_demo_workflow, initial_state
+from mini_trading_agents.execution.alpaca_paper import AlpacaPaperAdapter
+from mini_trading_agents.execution.models import AlpacaPaperSettings
+from mini_trading_agents.workflow import build_demo_workflow, initial_state
 from mini_trading_agents.portfolio_graph.constraints import (
     preflight_validate,
     validate_execution_plan,
@@ -15,23 +16,18 @@ from mini_trading_agents.portfolio_graph.constraints import (
 
 def load_account_context(state: dict[str, Any]) -> dict[str, Any]:
     paper = state["portfolio_config"].get("paper_trading", {})
-    storage_path = state["portfolio_config"].get("storage_path")
-    if storage_path and str(paper.get("provider", "local")).lower() == "local":
-        context = _load_local_paper_account(storage_path, paper)
-        if context:
-            return {"account_context": context}
-    equity = float(paper.get("initial_cash", 100000.0))
-    return {
-        "account_context": {
-            "account_id": str(paper.get("account_id", "demo")),
-            "cash": equity,
-            "equity": equity,
-            "base_currency": str(paper.get("base_currency", "USD")),
-            "positions": {},
-            "portfolio_history": [],
-            "source": "configured_initial_cash",
-        }
-    }
+    provider = str(paper.get("provider", "alpaca")).lower()
+    if provider != "alpaca":
+        raise RuntimeError(f"Unsupported online paper trading provider: {provider}")
+    adapter = AlpacaPaperAdapter(
+        AlpacaPaperSettings(
+            api_key=os.getenv("ALPACA_API_KEY", ""),
+            api_secret=os.getenv("ALPACA_API_SECRET", ""),
+            base_url=str(paper.get("alpaca_base_url", "https://paper-api.alpaca.markets")),
+            allow_fractional=bool(paper.get("allow_fractional", True)),
+        )
+    )
+    return {"account_context": adapter.get_account_context()}
 
 
 def preflight_validate_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -40,21 +36,30 @@ def preflight_validate_node(state: dict[str, Any]) -> dict[str, Any]:
 
 def prepare_ticker_tasks(state: dict[str, Any]) -> dict[str, Any]:
     config = state["portfolio_config"]
-    runtime_parameters = state.get("runtime_parameters", {})
-    global_scope = runtime_parameters.get("scope") == "global"
     tasks = [
         {
             "ticker": ticker,
             "analysis_date": state["analysis_date"],
             "data_providers": state["data_providers"],
             "trade_preferences": state["trade_preferences"],
-            "runtime_parameters": {"scope": "global" if global_scope else "node"},
-            "research_turns": int(config.get("default_research_turns", 2)),
-            "risk_turns": int(config.get("default_risk_turns", 3)),
+            "research_turns": int(config.get("research_turns", 2)),
+            "risk_turns": int(config.get("risk_turns", 3)),
         }
         for ticker in state["tickers"]
     ]
-    return {"ticker_tasks": tasks}
+    return {"ticker_tasks": tasks, "ticker_task_queue": tasks, "active_ticker_tasks": [], "dispatch_round": 0}
+
+
+def dispatch_ticker_batch(state: dict[str, Any]) -> dict[str, Any]:
+    queue = list(state.get("ticker_task_queue", []))
+    max_parallel = max(1, int(state["portfolio_config"].get("max_parallel_tickers", 5)))
+    batch = queue[:max_parallel]
+    remaining = queue[max_parallel:]
+    return {
+        "active_ticker_tasks": batch,
+        "ticker_task_queue": remaining,
+        "dispatch_round": int(state.get("dispatch_round", 0)) + 1,
+    }
 
 
 def run_single_ticker_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -67,7 +72,7 @@ def run_single_ticker_node(state: dict[str, Any]) -> dict[str, Any]:
             max_research_debate_turns=int(task["research_turns"]),
             max_risk_debate_turns=int(task["risk_turns"]),
             data_providers=task["data_providers"],
-            runtime_parameters=task.get("runtime_parameters", {"scope": "node"}),
+            data_provider_config=state.get("data_provider_config", {}),
             trade_preferences=task["trade_preferences"],
             llm_config=state["llm_config"],
         )
@@ -187,7 +192,7 @@ def demo_portfolio_manager(state: dict[str, Any]) -> dict[str, Any]:
     target_weights = _fit_weight_budget(target_weights, total_budget)
     used = sum(target_weights.values())
     target_weights["CASH"] = round(max(0.0, 1.0 - used), 4)
-    return {"portfolio_plan": _plan_from_weights(target_weights, advices, "Demo portfolio plan because LLM is disabled.")}
+    return {"portfolio_plan": _plan_from_weights(target_weights, advices, "Demo portfolio plan from deterministic weighting.")}
 
 
 def validate_portfolio_plan_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -320,90 +325,6 @@ def _fit_weight_budget(weights: dict[str, float], budget: float) -> dict[str, fl
         largest = max(fitted, key=fitted.get)
         fitted[largest] = round(max(0.0, fitted[largest] - overflow), 4)
     return fitted
-
-
-def _load_local_paper_account(storage_path: str, paper: dict[str, Any]) -> dict[str, Any] | None:
-    path = Path(storage_path)
-    if not path.exists():
-        return None
-    account_id = str(paper.get("account_id", "demo"))
-    try:
-        with sqlite3.connect(path) as conn:
-            conn.row_factory = sqlite3.Row
-            account = _maybe_row(conn, "select * from paper_accounts where account_id = ?", (account_id,))
-            if not account:
-                return None
-            positions = _local_positions(conn, account_id)
-            history = _portfolio_history(conn, account_id)
-    except sqlite3.OperationalError:
-        return None
-    cash = float(account["cash"])
-    market_value = sum(float(position["market_value"]) for position in positions.values())
-    equity = cash + market_value
-    for position in positions.values():
-        position["weight"] = round(float(position["market_value"]) / equity, 6) if equity else 0.0
-    return {
-        "account_id": account_id,
-        "cash": round(cash, 6),
-        "equity": round(equity, 6),
-        "base_currency": str(account["base_currency"]),
-        "positions": positions,
-        "portfolio_history": history,
-        "source": "local_paper_sqlite",
-    }
-
-
-def _local_positions(conn: sqlite3.Connection, account_id: str) -> dict[str, Any]:
-    rows = conn.execute(
-        "select * from paper_positions where account_id = ? and abs(quantity) > 1e-9",
-        (account_id,),
-    ).fetchall()
-    positions: dict[str, Any] = {}
-    for row in rows:
-        latest = _maybe_row(
-            conn,
-            """
-            select last_price, market_value, unrealized_pnl
-            from portfolio_snapshots
-            where account_id = ? and ticker = ?
-            order by created_at desc, id desc
-            limit 1
-            """,
-            (account_id, row["ticker"]),
-        )
-        quantity = float(row["quantity"])
-        average_cost = float(row["average_cost"])
-        last_price = float(latest["last_price"]) if latest else average_cost
-        market_value = float(latest["market_value"]) if latest else quantity * last_price
-        unrealized_pnl = float(latest["unrealized_pnl"]) if latest else (last_price - average_cost) * quantity
-        positions[str(row["ticker"])] = {
-            "quantity": quantity,
-            "market_value": round(market_value, 6),
-            "weight": 0.0,
-            "unrealized_pnl": round(unrealized_pnl, 6),
-            "average_cost": average_cost,
-            "last_price": last_price,
-            "realized_pnl": float(row["realized_pnl"]),
-        }
-    return positions
-
-
-def _portfolio_history(conn: sqlite3.Connection, account_id: str) -> list[dict[str, Any]]:
-    rows = conn.execute(
-        """
-        select run_id, ticker, cash, equity, market_value, unrealized_pnl, realized_pnl, created_at
-        from portfolio_snapshots
-        where account_id = ?
-        order by created_at desc, id desc
-        limit 20
-        """,
-        (account_id,),
-    ).fetchall()
-    return [dict(row) for row in rows]
-
-
-def _maybe_row(conn: sqlite3.Connection, sql: str, args: tuple[Any, ...]) -> sqlite3.Row | None:
-    return conn.execute(sql, args).fetchone()
 
 
 def _build_cross_section(advices: dict[str, dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:

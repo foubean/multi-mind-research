@@ -12,7 +12,6 @@ class OpenAIAdapterConfig:
     api_key: str = ""
     api_key_env: str = "OPENAI_API_KEY"
     base_url: str = ""
-    temperature: float = 0.2
 
 
 class OpenAIAdapter:
@@ -35,7 +34,6 @@ class OpenAIAdapter:
                 api_key=str(llm_config.get("api_key", "")),
                 api_key_env=str(llm_config.get("api_key_env", "OPENAI_API_KEY")),
                 base_url=str(llm_config.get("base_url", "")),
-                temperature=float(llm_config.get("temperature", 0.2)),
             )
         )
 
@@ -61,7 +59,6 @@ class OpenAIAdapter:
                     "strict": True,
                 }
             },
-            temperature=self.config.temperature,
         )
         return json.loads(response.output_text)
 

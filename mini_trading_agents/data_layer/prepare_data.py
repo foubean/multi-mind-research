@@ -12,7 +12,7 @@ FetchFn = Callable[[str, str], dict[str, Any]]
 
 def prepare_data(state: TradingState) -> dict[str, Any]:
     provider_keys = state["data_providers"]
-    adapters = get_data_adapters(provider_keys)
+    adapters = get_data_adapters(provider_keys, state.get("data_provider_config", {}))
     ticker = state["ticker"]
     as_of = state["analysis_date"]
     notes: list[str] = []

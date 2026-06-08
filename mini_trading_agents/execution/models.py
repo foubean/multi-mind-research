@@ -12,16 +12,6 @@ TARGET_WEIGHTS = {
 
 
 @dataclass(frozen=True)
-class PaperTradingSettings:
-    account_id: str
-    initial_cash: float
-    base_currency: str
-    fee_rate: float
-    slippage_bps: float
-    allow_fractional: bool
-
-
-@dataclass(frozen=True)
 class AlpacaPaperSettings:
     api_key: str
     api_secret: str

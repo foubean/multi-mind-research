@@ -167,7 +167,7 @@ def _trade_advice_section(state: dict[str, Any]) -> str:
     return f"""
     <section class="section" id="trade-advice">
       <h2>Trade Advice</h2>
-      <div class="grid grid-4">
+      <div class="trade-advice-overview">
         {_metric_panel("Preference", [
             ("Risk Profile", advice.get("risk_profile")),
             ("Trading Style", advice.get("trading_style")),
@@ -181,31 +181,41 @@ def _trade_advice_section(state: dict[str, Any]) -> str:
             (_period_label("Expected Return", advice), _pct(advice.get("expected_return_pct"))),
             (_period_label("Expected Risk", advice), _pct(advice.get("expected_risk_pct"))),
         ])}
+      </div>
+      <div class="trade-plan-grid">
         {_plan_card("Entry", advice.get("entry_plan", {}))}
         {_plan_card("Add", advice.get("add_position_plan", {}))}
-      </div>
-      <div class="grid grid-3" style="margin-top:16px">
         {_plan_card("Reduce", advice.get("reduce_position_plan", {}))}
         {_plan_card("Stop Loss", advice.get("stop_loss_plan", {}))}
+      </div>
+      <div class="grid grid-2" style="margin-top:16px">
         <div class="panel">
           <h3>Invalidation Conditions</h3>
           <ul class="summary">{invalidations}</ul>
         </div>
+        <div class="panel">
+          <h3>Rationale</h3>
+          <p class="summary">{_e(advice.get("rationale", ""))}</p>
+        </div>
       </div>
-      <div class="panel" style="margin-top:16px"><p>{_e(advice.get("rationale", ""))}</p></div>
     </section>
 """
 
 
 def _plan_card(title: str, plan: dict[str, Any]) -> str:
-    return _metric_panel(
-        title,
-        [
-            ("Method", plan.get("method", "N/A")),
-            ("Fraction", _pct(plan.get("fraction"))),
-            ("Trigger", plan.get("trigger", "N/A")),
-        ],
-    )
+    return f"""
+    <div class="panel trade-plan-card">
+      <h3>{_e(title)}</h3>
+      <div class="trade-plan-meta">
+        <div class="metric"><div class="label">Method</div><div class="value">{_e(_fmt(plan.get("method", "N/A")))}</div></div>
+        <div class="metric"><div class="label">Fraction</div><div class="value">{_pct(plan.get("fraction"))}</div></div>
+      </div>
+      <div class="trade-trigger">
+        <div class="label">Trigger</div>
+        <p>{_e(plan.get("trigger", "N/A"))}</p>
+      </div>
+    </div>
+"""
 
 
 def _period_label(label: str, advice: dict[str, Any]) -> str:

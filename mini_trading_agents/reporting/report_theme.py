@@ -90,6 +90,25 @@ html { scroll-behavior: smooth; }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.trade-advice-overview { display: grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap: 16px; }
+.trade-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(320px, 1fr)); gap: 16px; margin-top: 16px; }
+.trade-plan-card { display: grid; gap: 12px; align-content: start; }
+.trade-plan-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 180px)); gap: 10px; }
+.trade-plan-card .metric { min-height: 76px; }
+.trade-plan-card .metric .value { font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+.trade-trigger {
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 12px;
+}
+.trade-trigger .label {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.trade-trigger p { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
 .quote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px 24px 24px; }
 .data-table { display: grid; gap: 11px; }
 .data-row { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid #edf0f5; padding-bottom: 9px; }
@@ -192,7 +211,8 @@ svg text { font-family: inherit; fill: var(--ink); font-size: 12px; }
 }
 .back-top:hover { background: #1e49a7; }
 @media (max-width: 920px) {
-  .quote-header, .quote-grid, .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .quote-header, .quote-grid, .grid-2, .grid-3, .grid-4, .trade-advice-overview, .trade-plan-grid { grid-template-columns: 1fr; }
+  .trade-plan-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow { grid-template-columns: 1fr 1fr; }
   .price { font-size: 34px; }
   .back-top { right: 22px; bottom: 34px; }

@@ -38,11 +38,8 @@ def preflight_validate(state: dict[str, Any]) -> dict[str, Any]:
     for category in ["market", "sentiment", "news", "fundamentals"]:
         if category not in providers:
             violations.append(_fatal("missing_data_provider", f"Missing data provider for {category}."))
-    if state["llm_config"].get("enabled") and not state["llm_config"].get("model"):
-        violations.append(_fatal("missing_llm_model", "LLM is enabled but no model is configured."))
-
-    if not state["llm_config"].get("enabled"):
-        warnings.append("LLM is disabled; portfolio manager will use deterministic demo output.")
+    if not state["llm_config"].get("model"):
+        violations.append(_fatal("missing_llm_model", "No LLM model is configured."))
 
     status = "fatal" if violations else "valid"
     return {"valid": not violations, "status": status, "violations": violations, "warnings": warnings}

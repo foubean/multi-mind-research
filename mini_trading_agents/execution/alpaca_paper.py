@@ -18,6 +18,38 @@ class AlpacaPaperAdapter:
         self.settings = settings
         self.base_url = settings.base_url.rstrip("/")
 
+    def get_account_context(self) -> dict[str, Any]:
+        account = self._request("GET", "/v2/account")
+        positions = self._request("GET", "/v2/positions")
+        if not isinstance(positions, list):
+            positions = []
+        equity = float(account.get("equity", account.get("portfolio_value", 0)) or 0)
+        normalized_positions: dict[str, Any] = {}
+        for item in positions:
+            ticker = str(item.get("symbol", "")).upper()
+            if not ticker:
+                continue
+            market_value = float(item.get("market_value", 0) or 0)
+            normalized_positions[ticker] = {
+                "quantity": float(item.get("qty", 0) or 0),
+                "market_value": round(market_value, 6),
+                "weight": round(market_value / equity, 6) if equity else 0.0,
+                "unrealized_pnl": round(float(item.get("unrealized_pl", 0) or 0), 6),
+                "average_cost": float(item.get("avg_entry_price", 0) or 0),
+                "last_price": float(item.get("current_price", 0) or 0),
+                "realized_pnl": 0.0,
+            }
+        history = self._portfolio_history()
+        return {
+            "account_id": str(account.get("account_number") or account.get("id") or "alpaca-paper"),
+            "cash": round(float(account.get("cash", 0) or 0), 6),
+            "equity": round(equity, 6),
+            "base_currency": str(account.get("currency", "USD")),
+            "positions": normalized_positions,
+            "portfolio_history": history if isinstance(history, dict) else {},
+            "source": "alpaca_paper_api",
+        }
+
     def apply_decision(self, run_id: str, state: dict[str, Any]) -> dict[str, Any]:
         decision = state.get("final_trade_decision")
         market = state.get("market_data")
@@ -266,7 +298,7 @@ class AlpacaPaperAdapter:
             result["broker_order"] = broker_order
         return result
 
-    def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
         body = None if payload is None else json.dumps(payload).encode("utf-8")
         request = Request(
             f"{self.base_url}{path}",

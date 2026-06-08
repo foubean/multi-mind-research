@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +21,7 @@ class PersistenceConfig:
     checkpoint_enabled: bool = True
     snapshot_enabled: bool = True
     decision_memory_enabled: bool = True
+    snapshot_path: str = "storage/workflow_snapshots.sqlite"
     storage_path: str = "storage/trading_agents.sqlite"
     checkpoint_path: str = "storage/langgraph_checkpoints.sqlite"
     memory_store_path: str = "storage/langgraph_memory.sqlite"
@@ -28,43 +32,59 @@ class AppConfig:
     persistence: PersistenceConfig
     llm: "LLMConfig"
     paper_trading: "PaperTradingConfig"
-    parameters: "ParameterConfig"
+    run: "RunConfig"
+    data_providers: "DataProviderConfig"
+    logging: "LoggingConfig"
+    reporting: "ReportingConfig"
     portfolio: "PortfolioConfig"
     trade_preferences: "TradePreferencesConfig"
 
 
 @dataclass(frozen=True)
 class LLMConfig:
-    enabled: bool = False
-    runtime_check_enabled: bool = True
+    enabled: bool = True
     provider: str = "openai"
     model: str = ""
     api_key: str = ""
     api_key_env: str = "OPENAI_API_KEY"
     base_url: str = ""
-    temperature: float = 0.2
 
 
 @dataclass(frozen=True)
 class PaperTradingConfig:
-    enabled: bool = False
-    provider: str = "local"
-    account_id: str = "demo"
-    initial_cash: float = 100000.0
-    base_currency: str = "USD"
-    fee_rate: float = 0.0005
-    slippage_bps: float = 5.0
+    enable: bool = False
+    provider: str = "alpaca"
     allow_fractional: bool = True
-    alpaca_api_key: str = ""
-    alpaca_api_key_env: str = "ALPACA_API_KEY"
-    alpaca_api_secret: str = ""
-    alpaca_api_secret_env: str = "ALPACA_API_SECRET"
     alpaca_base_url: str = "https://paper-api.alpaca.markets"
 
 
 @dataclass(frozen=True)
-class ParameterConfig:
-    scope: str = "node"
+class RunConfig:
+    tickers: tuple[str, ...] = ("NVDA", "AAPL", "MSFT")
+    analysis_date: str = ""
+    research_turns: int = 4
+    risk_turns: int = 6
+    max_parallel_tickers: int = 5
+
+
+@dataclass(frozen=True)
+class DataProviderConfig:
+    default: str = "sample"
+    market: str = ""
+    sentiment: str = ""
+    news: str = ""
+    fundamentals: str = ""
+
+
+@dataclass(frozen=True)
+class LoggingConfig:
+    log_enabled: bool = True
+    log_dir: str = "logs"
+
+
+@dataclass(frozen=True)
+class ReportingConfig:
+    report_dir: str = "reports"
 
 
 @dataclass(frozen=True)
@@ -89,13 +109,12 @@ class PortfolioConstraintsConfig:
 class PortfolioConfig:
     max_revision_count: int = 2
     single_ticker_failure_policy: str = "fail_fast"
-    default_research_turns: int = 2
-    default_risk_turns: int = 3
     constraints: PortfolioConstraintsConfig = PortfolioConstraintsConfig()
 
 
 @dataclass(frozen=True)
 class TradePreferencesConfig:
+    preferences_path: str = "config/trade_preferences.default.json"
     risk_profile: str = "balanced"
     trading_style: str = "staged"
     target_return_pct: float = 0.12
@@ -105,61 +124,79 @@ class TradePreferencesConfig:
 
 def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> AppConfig:
     data: dict[str, Any] = {}
+    config_path: Path | None = None
     if path:
         config_path = Path(path)
+        _load_secret_env_files(config_path.parent)
         if config_path.exists():
             with config_path.open("rb") as config_file:
                 data = tomllib.load(config_file)
+    else:
+        _load_secret_env_files(Path("."))
 
     persistence = data.get("persistence", {})
     llm = _resolve_llm_config(data)
     paper_trading = data.get("paper_trading", {})
-    parameters = data.get("parameters", {})
+    run = data.get("run", {})
+    data_providers = data.get("data_providers", {})
+    logging_config = data.get("logging", {})
+    reporting = data.get("reporting", {})
+    config_files = data.get("config_files", {})
     portfolio = data.get("portfolio", {})
-    portfolio_constraints = portfolio.get("constraints", {})
-    trade_preferences = data.get("trade_preferences", {})
+    constraints_path = str(config_files.get("constraints_path", "config/portfolio_constraints.default.json"))
+    portfolio_constraints = _load_portfolio_constraints(config_path, constraints_path)
+    portfolio_constraints.update(portfolio.get("constraints", {}))
+    trade_preferences_path = str(config_files.get("trade_preferences_path", "config/trade_preferences.default.json"))
+    trade_preferences = _load_json_object(config_path, trade_preferences_path, "trade preferences")
+    trade_preferences.update(data.get("trade_preferences", {}))
     return AppConfig(
         persistence=PersistenceConfig(
             checkpoint_enabled=_as_bool(persistence.get("checkpoint_enabled"), True),
             snapshot_enabled=_as_bool(persistence.get("snapshot_enabled"), True),
             decision_memory_enabled=_as_bool(persistence.get("decision_memory_enabled"), True),
+            snapshot_path=str(persistence.get("snapshot_path", "storage/workflow_snapshots.sqlite")),
             storage_path=str(persistence.get("storage_path", "storage/trading_agents.sqlite")),
             checkpoint_path=str(persistence.get("checkpoint_path", "storage/langgraph_checkpoints.sqlite")),
             memory_store_path=str(persistence.get("memory_store_path", "storage/langgraph_memory.sqlite")),
         ),
         llm=LLMConfig(
-            enabled=_as_bool(llm.get("enabled"), False),
-            runtime_check_enabled=_as_bool(llm.get("runtime_check_enabled"), True),
+            enabled=True,
             provider=str(llm.get("provider", "openai")),
             model=str(llm.get("model", "")),
             api_key=str(llm.get("api_key", "")),
             api_key_env=str(llm.get("api_key_env", "OPENAI_API_KEY")),
-            base_url=str(llm.get("base_url", "")),
-            temperature=float(llm.get("temperature", 0.2)),
+            base_url=str(llm.get("base_url", "")) or os.getenv("OPENAI_BASE_URL", ""),
         ),
         paper_trading=PaperTradingConfig(
-            enabled=_as_bool(paper_trading.get("enabled"), False),
-            provider=str(paper_trading.get("provider", "local")),
-            account_id=str(paper_trading.get("account_id", "demo")),
-            initial_cash=float(paper_trading.get("initial_cash", 100000.0)),
-            base_currency=str(paper_trading.get("base_currency", "USD")),
-            fee_rate=float(paper_trading.get("fee_rate", 0.0005)),
-            slippage_bps=float(paper_trading.get("slippage_bps", 5.0)),
+            enable=_as_bool(paper_trading.get("enable"), False),
+            provider=str(paper_trading.get("provider", "alpaca")),
             allow_fractional=_as_bool(paper_trading.get("allow_fractional"), True),
-            alpaca_api_key=str(paper_trading.get("alpaca", {}).get("api_key", "")),
-            alpaca_api_key_env=str(paper_trading.get("alpaca", {}).get("api_key_env", "ALPACA_API_KEY")),
-            alpaca_api_secret=str(paper_trading.get("alpaca", {}).get("api_secret", "")),
-            alpaca_api_secret_env=str(paper_trading.get("alpaca", {}).get("api_secret_env", "ALPACA_API_SECRET")),
-            alpaca_base_url=str(paper_trading.get("alpaca", {}).get("base_url", "https://paper-api.alpaca.markets")),
+            alpaca_base_url=os.getenv("ALPACA_PAPER_BASE_URL", "https://paper-api.alpaca.markets"),
         ),
-        parameters=ParameterConfig(
-            scope=str(parameters.get("scope", "node")),
+        run=RunConfig(
+            tickers=_as_ticker_tuple(run.get("tickers", ["NVDA", "AAPL", "MSFT"])),
+            analysis_date=_resolve_analysis_date(str(run.get("analysis_date", ""))),
+            research_turns=int(run.get("research_turns", 4)),
+            risk_turns=int(run.get("risk_turns", 6)),
+            max_parallel_tickers=int(run.get("max_parallel_tickers", 5)),
+        ),
+        data_providers=DataProviderConfig(
+            default=str(data_providers.get("default", "sample")),
+            market=str(data_providers.get("market", "")),
+            sentiment=str(data_providers.get("sentiment", "")),
+            news=str(data_providers.get("news", "")),
+            fundamentals=str(data_providers.get("fundamentals", "")),
+        ),
+        reporting=ReportingConfig(
+            report_dir=str(reporting.get("report_dir", "reports")),
+        ),
+        logging=LoggingConfig(
+            log_enabled=_as_bool(logging_config.get("enabled"), True),
+            log_dir=str(logging_config.get("log_dir", "logs")),
         ),
         portfolio=PortfolioConfig(
             max_revision_count=int(portfolio.get("max_revision_count", 2)),
             single_ticker_failure_policy=str(portfolio.get("single_ticker_failure_policy", "fail_fast")),
-            default_research_turns=int(portfolio.get("default_research_turns", 2)),
-            default_risk_turns=int(portfolio.get("default_risk_turns", 3)),
             constraints=PortfolioConstraintsConfig(
                 long_only=_as_bool(portfolio_constraints.get("long_only"), True),
                 allow_fractional=_as_bool(portfolio_constraints.get("allow_fractional"), True),
@@ -180,6 +217,7 @@ def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> AppConfig:
             ),
         ),
         trade_preferences=TradePreferencesConfig(
+            preferences_path=trade_preferences_path,
             risk_profile=str(trade_preferences.get("risk_profile", "balanced")),
             trading_style=str(trade_preferences.get("trading_style", "staged")),
             target_return_pct=float(trade_preferences.get("target_return_pct", 0.12)),
@@ -200,15 +238,54 @@ def _resolve_llm_config(data: dict[str, Any]) -> dict[str, Any]:
     provider = data.get("model_providers", {}).get(provider_name, {})
     provider_key = str(provider.get("name", provider_name)).lower()
     return {
-        "enabled": True,
-        "runtime_check_enabled": data.get("runtime_check_enabled", True),
         "provider": provider_key,
         "model": data.get("model", ""),
         "api_key": provider.get("api_key", ""),
         "api_key_env": provider.get("api_key_env", "OPENAI_API_KEY"),
-        "base_url": provider.get("base_url", ""),
-        "temperature": data.get("temperature", 0.2),
+        "base_url": provider.get("base_url", "") or os.getenv("OPENAI_BASE_URL", ""),
     }
+
+
+def _load_secret_env_files(directory: Path) -> None:
+    _load_env_file(directory / ".env.openai")
+    _load_env_file(directory / ".env.alpaca")
+
+
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = _strip_env_value(value.strip())
+        if key:
+            os.environ[key] = value
+
+
+def _strip_env_value(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def _load_portfolio_constraints(config_path: Path | None, constraints_path: str) -> dict[str, Any]:
+    return _load_json_object(config_path, constraints_path, "portfolio constraints")
+
+
+def _load_json_object(config_path: Path | None, json_path: str, label: str) -> dict[str, Any]:
+    path = Path(json_path)
+    if not path.is_absolute() and config_path is not None:
+        path = config_path.parent / path
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as json_file:
+        data = json.load(json_file)
+    if not isinstance(data, dict):
+        raise ValueError(f"{label} file must contain a JSON object: {path}")
+    return data
 
 
 def _as_bool(value: Any, default: bool) -> bool:
@@ -219,3 +296,17 @@ def _as_bool(value: Any, default: bool) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return bool(value)
+
+
+def _as_ticker_tuple(value: Any) -> tuple[str, ...]:
+    if isinstance(value, str):
+        items = value.split(",")
+    else:
+        items = value
+    tickers = tuple(str(ticker).strip().upper() for ticker in items if str(ticker).strip())
+    return tickers or ("NVDA", "AAPL", "MSFT")
+
+
+def _resolve_analysis_date(value: str) -> str:
+    value = value.strip()
+    return value or date.today().isoformat()

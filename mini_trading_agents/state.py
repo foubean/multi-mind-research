@@ -106,12 +106,6 @@ class TradePreferences(TypedDict):
     expected_holding_days: int
 
 
-class RuntimeParameters(TypedDict):
-    # "node" keeps today's per-node/single-ticker behavior. "global" is a
-    # reserved placeholder for future parent-graph/global parameter handling.
-    scope: str
-
-
 class TradePlanStep(TypedDict):
     method: str
     trigger: str
@@ -179,7 +173,7 @@ class TradingState(TypedDict):
     max_research_debate_turns: int
     max_risk_debate_turns: int
     data_providers: dict[str, str]
-    runtime_parameters: RuntimeParameters
+    data_provider_config: NotRequired[dict[str, Any]]
     trade_preferences: TradePreferences
     llm_config: NotRequired[dict[str, Any]]
     llm_usage_trace: NotRequired[Annotated[list[dict[str, Any]], operator.add]]
