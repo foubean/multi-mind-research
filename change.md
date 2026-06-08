@@ -14,6 +14,7 @@
 - Added console and HTML report output for local paper trading results.
 - Added trade preferences config for single-ticker advice generation.
 - Added `parameters.scope` config with `node` as the current behavior and `global` as a reserved placeholder.
+- Added `trade_intent` to single-ticker trade advice so coarse `BUY/HOLD/SELL` actions can express finer intent such as `watch`, `wait`, `open`, `add`, `reduce`, or `exit`.
 - Expanded trader output into structured `trade_advice` with expected return, expected risk, holding horizon, entry/add/reduce/stop plans, and invalidation conditions.
 - Added `Trade Advice` to the HTML report and console output.
 - Kept `position_size` as a single-ticker conviction bucket; future portfolio parent graphs should convert advice into precise target weights.
