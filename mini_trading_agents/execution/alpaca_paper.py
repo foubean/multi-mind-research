@@ -59,7 +59,7 @@ class AlpacaPaperAdapter:
         ticker = state["ticker"].upper()
         action = str(decision["action"]).upper()
         # The single-ticker graph treats position_size as conviction. The paper
-        # broker adapter maps it to a target weight only for execution demos.
+        # broker adapter maps it to a target weight only for single-ticker execution.
         target_weight = _target_weight(action, str(decision.get("position_size", "none")))
         account = self._request("GET", "/v2/account")
         current_position = self._position(ticker)

@@ -1,15 +1,15 @@
-# Mini Trading Agents Demo
+# Mini Trading Agents
 
 A minimal LangGraph skeleton inspired by TradingAgents.
 
-It demonstrates three core ideas:
+It focuses on three core ideas:
 
 - Multiple role-specific agents run in a graph workflow.
 - Agents share information through one mutable workflow state.
 - Later agents synthesize reports, debates, proposals, and risk reviews.
 - Analyst nodes run in parallel, while research and risk debate nodes loop for configurable rounds.
 
-This is a teaching/demo scaffold, not investment advice and not a live trading system.
+This is a research scaffold, not investment advice and not a live trading system.
 
 ## Run
 
@@ -203,7 +203,7 @@ Yahoo currently fills all four data categories:
 - news: Yahoo Finance news normalized into `NewsData`.
 - fundamentals: Yahoo `info` and financial statements normalized into `FundamentalsData`.
 
-Yahoo news and sentiment are useful for this demo, but still lightweight. Production use should add SEC filings, a dedicated news API, and a real social/news sentiment model.
+Yahoo news and sentiment are useful for this system, but still lightweight. Production use should add SEC filings, a dedicated news API, and a real social/news sentiment model.
 
 Each run writes a JSONL audit log to `logs/` by default:
 
@@ -461,8 +461,8 @@ python .\run.py --research-turns 4 --risk-turns 6
 Persist snapshots and decision memory:
 
 ```powershell
-python .\run.py --ticker NVDA --date 2026-06-05 --run-id nvda-demo-001
-python .\run.py --resume nvda-demo-001
+python .\run.py --ticker NVDA --date 2026-06-05 --run-id nvda-run-001
+python .\run.py --resume nvda-run-001
 ```
 
 Snapshots are written through `SnapshotStore` to `storage/workflow_snapshots.sqlite` by default. Each streamed full-state `values` chunk is saved as a recoverable snapshot there. Decision memory is written to LangGraph Store at `storage/langgraph_memory.sqlite`; `BusinessStore` writes to `storage/trading_agents.sqlite` for business records such as `decision_memory`, `memory_events`, trade outcomes, and paper execution rows.

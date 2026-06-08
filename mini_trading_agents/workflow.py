@@ -21,7 +21,7 @@ ANALYST_NODES = [
 Node = Callable[[TradingState], dict]
 
 
-def build_demo_workflow(checkpointer=None, store=None):
+def build_workflow(checkpointer=None, store=None):
     graph = StateGraph(TradingState)
 
     graph.add_node("prepare_data", _with_trace("prepare_data", prepare_data))

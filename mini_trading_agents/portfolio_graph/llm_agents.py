@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from mini_trading_agents.llm_adapter import get_llm_adapter
-from mini_trading_agents.portfolio_graph.nodes import demo_portfolio_manager
+from mini_trading_agents.portfolio_graph.nodes import deterministic_portfolio_manager
 
 
 def portfolio_manager(state: dict[str, Any]) -> dict[str, Any]:
     if not state["llm_config"].get("enabled"):
-        return demo_portfolio_manager(state)
+        return deterministic_portfolio_manager(state)
 
     try:
         adapter = get_llm_adapter(state["llm_config"])

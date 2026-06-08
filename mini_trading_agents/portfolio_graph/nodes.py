@@ -6,7 +6,7 @@ from typing import Any
 
 from mini_trading_agents.execution.alpaca_paper import AlpacaPaperAdapter
 from mini_trading_agents.execution.models import AlpacaPaperSettings
-from mini_trading_agents.workflow import build_demo_workflow, initial_state
+from mini_trading_agents.workflow import build_workflow, initial_state
 from mini_trading_agents.portfolio_graph.constraints import (
     preflight_validate,
     validate_execution_plan,
@@ -76,7 +76,7 @@ def run_single_ticker_node(state: dict[str, Any]) -> dict[str, Any]:
             trade_preferences=task["trade_preferences"],
             llm_config=state["llm_config"],
         )
-        final_state = build_demo_workflow().invoke(ticker_state)
+        final_state = build_workflow().invoke(ticker_state)
         result = {
             "ticker": ticker,
             "status": "ok",
@@ -163,7 +163,7 @@ def portfolio_risk_reviewer(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def demo_portfolio_manager(state: dict[str, Any]) -> dict[str, Any]:
+def deterministic_portfolio_manager(state: dict[str, Any]) -> dict[str, Any]:
     advices = state.get("trade_advices", {})
     constraints = state["portfolio_constraints"]
     buy_advices = {
@@ -192,7 +192,7 @@ def demo_portfolio_manager(state: dict[str, Any]) -> dict[str, Any]:
     target_weights = _fit_weight_budget(target_weights, total_budget)
     used = sum(target_weights.values())
     target_weights["CASH"] = round(max(0.0, 1.0 - used), 4)
-    return {"portfolio_plan": _plan_from_weights(target_weights, advices, "Demo portfolio plan from deterministic weighting.")}
+    return {"portfolio_plan": _plan_from_weights(target_weights, advices, "Deterministic portfolio plan from rule-based weighting.")}
 
 
 def validate_portfolio_plan_node(state: dict[str, Any]) -> dict[str, Any]:

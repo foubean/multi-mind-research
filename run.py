@@ -15,7 +15,7 @@ from mini_trading_agents.llm_adapter import get_llm_adapter
 from mini_trading_agents.logging import JsonlRunLogger, make_log_path
 from mini_trading_agents.reporting import make_report_path, write_html_report
 from mini_trading_agents.storage import BusinessStore, SnapshotStore, build_decision_memory_event
-from mini_trading_agents.workflow import build_demo_workflow, initial_state
+from mini_trading_agents.workflow import build_workflow, initial_state
 
 
 DEFAULT_CONFIG = "config.toml"
@@ -113,7 +113,7 @@ def main() -> None:
         memory_store = stack.enter_context(
             _memory_store_context(persistence.decision_memory_enabled, persistence.memory_store_path)
         )
-        graph = build_demo_workflow(checkpointer=checkpointer, store=memory_store)
+        graph = build_workflow(checkpointer=checkpointer, store=memory_store)
         graph_config = {"configurable": {"thread_id": run_id}} if checkpointer else None
         for chunk in graph.stream(state, config=graph_config, stream_mode=["updates", "values"], version="v2"):
             if logger:

@@ -30,6 +30,7 @@ Todo: `PAPER-TRADING`
 - Changed provider-specific secret loading so `.env.openai` and `.env.alpaca` override stale process environment variables inside the current run, making local project credentials authoritative during connection checks and workflow execution.
 - Fixed single-ticker HTML `Trade Advice` rendering by replacing narrow metric columns with wider overview and trade-plan cards, so long entry/add/reduce/stop triggers render as readable paragraphs instead of oversized wrapped text.
 - Removed local paper trading execution: deleted `LocalPaperAdapter`, removed local provider wiring/config fields, switched paper trading defaults to Alpaca online paper trading, and changed portfolio account context loading to read Alpaca Paper account/positions instead of local SQLite tables.
+- Refined workflow function names and README wording, including `build_workflow` and `deterministic_portfolio_manager`.
 - Added portfolio-level execution adapter support via `apply_portfolio_plan`.
 - Implemented `LocalPaperAdapter.apply_portfolio_plan()` for multi-ticker local paper orders, fills, position updates, and portfolio snapshots.
 - Implemented Alpaca portfolio paper order submission with idempotent client order ids and a no-order account-read validation path.
