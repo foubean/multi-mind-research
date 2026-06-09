@@ -1,6 +1,30 @@
 # Mini Trading Agents
 
+English | [中文](README.zh-CN.md)
+
 A minimal LangGraph skeleton inspired by TradingAgents.
+
+This system extends the TradingAgents-style single-symbol research workflow
+into a multi-ticker portfolio management workflow. Users can provide a target
+universe of securities together with capital and risk constraints, and the
+system produces position-management guidance, target allocation proposals, and
+portfolio-level execution plans. In this sense, the project is moving from
+single-name trading assistance toward a personal fund-management assistant.
+
+The next development direction is long-running automated operation: scheduled
+analysis, continuous portfolio monitoring, paper execution feedback, and
+agent-driven maintenance of the investment universe. Over time, agents should
+be able to recommend new candidates, remove deteriorating holdings from the
+watchlist or portfolio, and keep the target universe aligned with the user's
+capital mandate and risk profile.
+
+The framework also includes audit-oriented infrastructure for replay and
+recovery. LangGraph checkpoints preserve graph execution progress, custom
+snapshots persist complete workflow states for historical review, and decision
+memory records portfolio outcomes for later analysis. Paper trading is supported
+through Alpaca Paper Trading, so strategy decisions can be tested against a
+broker-hosted simulated account before any live-trading integration is
+considered.
 
 It focuses on three core ideas:
 
@@ -8,6 +32,8 @@ It focuses on three core ideas:
 - Agents share information through one mutable workflow state.
 - Later agents synthesize reports, debates, proposals, and risk reviews.
 - Analyst nodes run in parallel, while research and risk debate nodes loop for configurable rounds.
+- Checkpoints, snapshots, and decision memory support run recovery, audit trails, and historical review.
+- Alpaca Paper Trading provides an online simulated execution layer for validating portfolio decisions.
 
 This is a research scaffold, not investment advice and not a live trading system.
 
@@ -465,7 +491,7 @@ python .\run.py --ticker NVDA --date 2026-06-05 --run-id nvda-run-001
 python .\run.py --resume nvda-run-001
 ```
 
-Snapshots are written through `SnapshotStore` to `storage/workflow_snapshots.sqlite` by default. Each streamed full-state `values` chunk is saved as a recoverable snapshot there. Decision memory is written to LangGraph Store at `storage/langgraph_memory.sqlite`; `BusinessStore` writes to `storage/trading_agents.sqlite` for business records such as `decision_memory`, `memory_events`, trade outcomes, and paper execution rows.
+Snapshots are written through `SnapshotStore` to `storage/workflow_snapshots.sqlite` by default. Each streamed full-state `values` chunk is saved as a recoverable snapshot there, so prior runs can be inspected, compared, and resumed from the latest complete state. Decision memory is written to LangGraph Store at `storage/langgraph_memory.sqlite`; `BusinessStore` writes to `storage/trading_agents.sqlite` for business records such as `decision_memory`, `memory_events`, trade outcomes, and paper execution rows.
 
 Persistence is configured in local `config.toml`. The three persistence layers are all enabled by default:
 
