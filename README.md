@@ -37,6 +37,19 @@ It focuses on three core ideas:
 
 This is a research scaffold, not investment advice and not a live trading system.
 
+## Showcase
+
+The screenshots below show the current Vue operator console and the generated
+HTML research reports.
+
+| View | Preview |
+| --- | --- |
+| **Startup Console**<br>Main launch screen for choosing mode, ticker universe, analysis date, and providers. | ![Startup Console](startup.png) |
+| **Run History**<br>Historical runs, status inspection, summary, artifacts, and snapshots. | ![Run History](history.png) |
+| **Runtime Configuration**<br>Editable non-secret runtime settings used by the service layer. | ![Runtime Configuration](configuration.png) |
+| **Single-Ticker HTML Report**<br>Generated report for one ticker, including workflow trace and structured trade output. | ![Single-Ticker Report](demo_report_1.png) |
+| **Multi-Ticker HTML Report**<br>Portfolio-level report with graph orchestration, synthesis, and allocation review. | ![Multi-Ticker Report](demo_report_2_multi.png) |
+
 ## Run
 
 Install dependencies:
