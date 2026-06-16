@@ -566,9 +566,3 @@ Portfolio Manager
 ## Extending
 
 Replace the deterministic report logic in `agents.py` with calls to an LLM. Add more adapters under the relevant data category directory, such as `mini_trading_agents/data_layer/news/`, and have `prepare_data` write normalized inputs into `TradingState` before the analyst fan-out.
-
-接入RL
-state = 市场状态 + agent reports + memory
-action = BUY / SELL / HOLD + position_size
-reward = 未来收益 - 风险惩罚 - 交易成本
-policy = 可训练模型
